@@ -1,0 +1,7 @@
+edge_id,u,v,distance_km,road_class,congestion
+E1,AKU,Kashmir Park,1.4,Main Artery,8
+E3,Kashmir Park,Hassan Square,1.4,Main Artery,8
+E4,Hassan Square,FUAAST,2.7,Main Artery,8
+E7,FUAAST,NIPA,1.2,Main Artery,4
+E10,Gulshan Chowrangi,Maskan,2.3,Main Artery,8
+E14,Maskan,KU Gate,2.6,Main Artery,9
