@@ -5,3 +5,4 @@ folium
 osmnx
 networkx
 matplotlib
+scipy
