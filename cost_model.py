@@ -130,7 +130,8 @@ def verify_top_candidates(edges_df, node_demands, ranked_df, decay_rate, mu, gen
         from physarum_model import run_simulation as simulation_fn
 
     cost_map = cost_per_km or DEFAULT_COST_PER_KM
-    candidates = ranked_df.sort_values("value_ratio", ascending=False).head(top_n)
+    eligible = ranked_df[ranked_df["bio_efficiency"].notna()]
+    candidates = eligible.sort_values("value_ratio", ascending=False).head(top_n)
 
     rows = []
     for row in candidates.itertuples():
