@@ -385,7 +385,9 @@ def build_main_map(result, edges_df, highlighted):
         if src_match.empty:
             continue  # skip rather than crash the whole map over one bad row
         src = src_match.iloc[0]
-        if row.edge_id in road_style:
+        if pd.isna(row.bio_efficiency):
+            color, weight = "#77746D", 2
+        elif row.edge_id in road_style:
             color, weight = road_style[row.edge_id]
         else:
             weight = 2 + (row.bio_efficiency / max_eff) * 8
@@ -445,9 +447,8 @@ ranked_value = cached_cost_benefit(result, node_demands, cost_per_km)
 has_road_name = "road_name" in edges_df.columns
 if "note" in result.columns and result["note"].astype(str).str.contains("disconnected").any():
     st.warning(
-        "Some corridors are disconnected from the selected sink and use the independent-edge "
-        "fallback. Their conductance scores are produced by a different model and should not be "
-        "ranked directly against network-coupled scores."
+        "Some corridors are disconnected from the selected sink and receive no network-coupled score. "
+        "They remain visible with a blank score and are excluded from model-score comparisons."
     )
 
 if sim_mode == "Network-Coupled (experimental)":
@@ -547,6 +548,8 @@ with tab_priority:
     if "road_name" in result.columns:
         display_cols.append("road_name")
     display_cols += ["u", "v", "distance_km", "road_class", "congestion", "impedance", "bio_efficiency"]
+    if "note" in result.columns:
+        display_cols.append("note")
     display_df = result[display_cols].reset_index(drop=True)
     display_df.index = display_df.index + 1
     styled = display_df.style.background_gradient(
@@ -981,7 +984,11 @@ with tab_baseline:
                 f"modeling choice was made).")
 
     baseline_result = compute_static_baseline(edges_df, node_demands)
-    comparison = compare_rankings(result, baseline_result, top_n=min(10, len(result)))
+    network_scored_result = result[result["bio_efficiency"].notna()]
+    comparison = compare_rankings(
+        network_scored_result, baseline_result,
+        top_n=min(10, len(network_scored_result)),
+    )
 
     corr = comparison["spearman_corr"]
     bc1, bc2 = st.columns(2)
@@ -1023,7 +1030,7 @@ with tab_baseline:
     with col_a:
         st.markdown("**Full simulation ranking**")
         st.dataframe(
-            result[["edge_id", "u", "v", "bio_efficiency"]].reset_index(drop=True),
+            network_scored_result[["edge_id", "u", "v", "bio_efficiency"]].reset_index(drop=True),
             width="stretch",
         )
     with col_b:
