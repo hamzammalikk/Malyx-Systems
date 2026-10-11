@@ -174,6 +174,17 @@ def build_nodes_csv(G, out_path="full_network_nodes.csv"):
 
 
 if __name__ == "__main__":
-    G = discover_network()
-    build_edges_csv(G)
-    build_nodes_csv(G)
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Download an OSM road network around a chosen center.")
+    parser.add_argument("--lat", type=float, default=CENTER_POINT[0], help="Study-area center latitude.")
+    parser.add_argument("--lon", type=float, default=CENTER_POINT[1], help="Study-area center longitude.")
+    parser.add_argument("--radius-m", type=int, default=RADIUS_M, help="Study-area radius in meters.")
+    parser.add_argument("--edges-out", default="full_network_edges.csv")
+    parser.add_argument("--nodes-out", default="full_network_nodes.csv")
+    args = parser.parse_args()
+
+    center = (args.lat, args.lon)
+    G = discover_network(center_point=center, radius_m=args.radius_m)
+    build_edges_csv(G, args.edges_out)
+    build_nodes_csv(G, args.nodes_out)
