@@ -226,7 +226,7 @@ with st.sidebar:
 
     st.header("Data")
     uploaded = st.file_uploader(
-        "Upload edges CSV (from extract_gulshan_network.py or auto_discover_corridors.py, congestion filled in)",
+        "Upload edges CSV (from auto_discover_corridors.py, with congestion values filled in)",
         type="csv",
     )
     demand_uploaded = st.file_uploader(
@@ -285,8 +285,8 @@ if uploaded is not None and not use_sample:
     if edges_df["congestion"].isnull().any():
         st.error(
             "Some rows have no congestion value. Fill in the congestion column "
-            "(1-10) before running the model -- see extract_gulshan_network.py "
-            "docstring for how to estimate it from observed traffic patterns."
+            "(1-10) before running the model. Record its source, date, and collection method. "
+            ""
         )
         st.stop()
 else:
@@ -667,7 +667,7 @@ with tab_cost:
         "Flood-resistant construction (elevated roadbed, improved drainage) genuinely costs more "
         "than standard widening. This applies an adjustable premium to corridors marked flood-prone "
         "in the Climate risk expander above the tabs, and shows whether accounting for that cost "
-        "changes which corridor is actually the best investment."
+        "changes which corridor has the highest heuristic value ratio."
     )
     if not flood_prone_edges:
         st.info("No corridors marked flood-prone yet -- open the \"🌧️ Climate risk\" expander above the tabs to mark some.")
@@ -701,15 +701,15 @@ with tab_cost:
         if original_top != climate_top:
             st.warning(
                 f"**Climate risk changes the recommendation:** without factoring in flood-resilience "
-                f"cost, {original_top} looked like the best investment. Once the climate premium is "
-                f"applied, {climate_top} actually offers better value. Worth leading with the "
-                f"climate-adjusted figure if this area faces real monsoon exposure."
+                f"cost, {original_top} looked like the highest value ratio. Once the climate premium is "
+                f"applied, {climate_top} has the higher heuristic value ratio. This is not a measured benefit or investment recommendation. "
+                f""
             )
         else:
             st.success(
-                f"{original_top} remains the best investment even after the climate premium -- "
-                f"a more robust recommendation, since it holds up whether or not you factor in "
-                f"flood-resilience cost."
+                f"{original_top} retains the highest heuristic value ratio after the assumed climate premium. "
+                f"This is not a measured benefit or investment recommendation; "
+                f""
             )
 
     st.markdown('<div class="section-tag">Model-score scenario sensitivity</div>', unsafe_allow_html=True)
@@ -797,7 +797,7 @@ with tab_map:
     else:
         st.warning(
             "No coordinates in the current dataset, so no map -- this appears "
-            "once you upload a CSV from extract_gulshan_network.py or auto_discover_corridors.py."
+            "once you upload a CSV from auto_discover_corridors.py."
         )
 
 with tab_resilience:
