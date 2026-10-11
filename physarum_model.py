@@ -16,9 +16,10 @@ network flow conservation. Use physarum_network_model.run_network_simulation
 for the network-coupled model. That model also has explicit single-sink and
 undirected-network assumptions.
 
-The number of iterations is fixed by the caller. No convergence criterion is
-currently evaluated, so results are final-iteration conductance scores, not
-guaranteed equilibria.
+The iteration limit is set by the caller. The solver stops early only after
+the maximum relative conductance change remains below tolerance for several
+consecutive steps. This is a numerical stopping check, not a guarantee of a
+global optimum or agreement with observed traffic.
 
 References:
 - Tero, Kobayashi & Nakagaki (2007), J. Theor. Biol. 244, 553-564.
