@@ -299,8 +299,8 @@ with st.sidebar:
     with st.expander("Get edge and demand files for a new area"):
         st.markdown("Use free OpenStreetMap data. In Google Colab, run the repository scripts to create `full_network_edges.csv`, `full_network_nodes.csv`, and `node_demand.csv`.")
         st.code(
-            "pip install osmnx pandas\\n"
-            "python auto_discover_corridors.py --lat 24.86 --lon 67.01 --radius-m 2500\\n"
+            "pip install osmnx pandas\n"
+            "python auto_discover_corridors.py --lat 24.86 --lon 67.01 --radius-m 2500\n"
             "python compute_node_demand.py --full full_network_nodes.csv --lat 24.86 --lon 67.01 --radius-m 2500",
             language="bash",
         )
