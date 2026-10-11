@@ -297,11 +297,16 @@ with st.sidebar:
         key="demand_csv",
     )
     with st.expander("Get edge and demand files for a new area"):
-        st.markdown("Use free OpenStreetMap data. In Google Colab, run the repository scripts to create `full_network_edges.csv`, `full_network_nodes.csv`, and `node_demand.csv`.")
+        st.markdown("Use free OpenStreetMap data in a new Google Colab notebook. Clone the repository, run the two scripts with your study-area center, then download the two CSVs needed by this app.")
         st.code(
-            "pip install osmnx pandas\n"
-            "python auto_discover_corridors.py --lat 24.86 --lon 67.01 --radius-m 2500\n"
-            "python compute_node_demand.py --full full_network_nodes.csv --lat 24.86 --lon 67.01 --radius-m 2500",
+            "!git clone https://github.com/hamzammalikk/Malyx-Systems.git\n"
+            "%cd Malyx-Systems\n"
+                        "!pip install osmnx pandas\\n"
+            "!python auto_discover_corridors.py --lat 24.86 --lon 67.01 --radius-m 2500\\n"
+            "!python compute_node_demand.py --full full_network_nodes.csv --lat 24.86 --lon 67.01 --radius-m 2500\\n"
+            "from google.colab import files\\n"
+            "files.download(\\"full_network_edges.csv\\")\\n"
+            "files.download(\\"node_demand.csv\\")",
             language="bash",
         )
         st.caption("Replace the example coordinates and radius. Node demand is an OpenStreetMap point-of-interest activity proxy, not observed trips. Congestion defaults to a placeholder unless you supply observations.")
