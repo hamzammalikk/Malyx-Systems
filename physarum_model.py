@@ -1,29 +1,32 @@
 """
-Physarum-inspired urban network optimization -- core model, v2.
+Physarum-inspired conductance adaptation and an independent-edge baseline.
 
-v1 fix (previous version) added an ad-hoc quadratic damping term (gamma)
-to stop the original formula from growing exponentially forever. It
-worked, but "gamma" wasn't grounded in anything -- it was invented purely
-for numerical stability.
+The reinforcement response is a normalized saturating form,
+f(Q) = Q^mu / (1 + Q^mu), related to the saturating response studied for
+multi-food-source Physarum networks by Tero et al. (2008). The normalization
+and its parameters are modeling choices here; they have not been calibrated
+to biological or urban traffic observations.
 
-v2 replaces that patch with the reinforcement rule actually used in the
-Physarum literature (Tero, Kobayashi & Nakagaki, 2007, "A mathematical
-model for adaptive transport network in path finding by true slime
-mold", Journal of Theoretical Biology; and the follow-up Tero et al.
-2010 Science paper that replicated the Tokyo rail network with this
-exact mechanism):
+The adaptation step is:
+    D_e <- max(0, D_e + f(|Q_e|) - decay_rate * D_e)
 
-    dD_ij/dt = f(Q_ij) - decay * D_ij
-    f(Q) = Q^mu / (1 + Q^mu)          [saturating/Hill-type response]
+This module's run_simulation() is an independent-edge approximation: each
+edge uses its own mean endpoint-demand proxy and impedance. It does not solve
+network flow conservation. Use physarum_network_model.run_network_simulation
+for the network-coupled model. That model also has explicit single-sink and
+undirected-network assumptions.
 
-f(Q) naturally bounds between 0 and 1 as flux grows, so conductance
-converges to a fixed point at D* <= 1/decay without needing any invented
-damping term. mu controls how sharply the tube "commits" once flux
-crosses a threshold -- mu=1 is the standard mild-saturation case; higher
-mu makes the network behave more like a winner-take-all switch.
+The number of iterations is fixed by the caller. No convergence criterion is
+currently evaluated, so results are final-iteration conductance scores, not
+guaranteed equilibria.
 
-This is the single source of truth imported by extraction/analysis
-scripts and the Streamlit app.
+References:
+- Tero, Kobayashi & Nakagaki (2007), J. Theor. Biol. 244, 553-564.
+  https://doi.org/10.1016/j.jtbi.2006.07.015
+- Tero et al. (2008), Theory in Biosciences 127, 89-94.
+  https://doi.org/10.1007/s12064-008-0037-9
+- Tero et al. (2010), Science 327, 439-442.
+  https://doi.org/10.1126/science.1177894
 """
 
 import pandas as pd
@@ -43,7 +46,7 @@ def impedance(distance_km, congestion, road_class):
 
 
 def reinforcement(Q, mu=1.0):
-    """Saturating reinforcement function f(Q) = Q^mu / (1 + Q^mu)."""
+    """Normalized saturating response f(|Q|) = |Q|^mu / (1 + |Q|^mu)."""
     if Q <= 0:
         return 0.0
     return (Q ** mu) / (1 + Q ** mu)
@@ -57,8 +60,10 @@ def run_simulation(edges_df, node_demands, decay_rate=0.15, mu=1.0, generations=
     mu: saturation sharpness of the reinforcement function (see docstring)
     generations: number of adaptation steps to run
 
-    Returns a DataFrame with the original columns plus 'impedance' and
-    'bio_efficiency' (final converged conductance), sorted weakest first.
+    Returns the input columns plus 'impedance' and 'bio_efficiency'
+    (conductance after exactly `generations` iterations), sorted by
+    that model score. This independent-edge baseline is not a network flow
+    solve and does not check numerical convergence.
     """
     df = edges_df.copy()
     df["impedance"] = df.apply(
