@@ -497,7 +497,7 @@ with k4:
 st.write("")
 
 # ---------------------------------------------------------------------------
-# Shared helpers (used by Cost-Benefit and Resilience Routing tabs)
+# Shared helpers (used by Cost Screening and Resilience Routing tabs)
 # ---------------------------------------------------------------------------
 def node_label(node_id):
     if not has_road_name:
@@ -525,7 +525,7 @@ with st.expander("🌧️ Climate risk: mark flood-prone corridors (optional, sh
     st.caption(
         "Based on local knowledge or historical monsoon reports -- mark which corridors are known "
         "to flood. This feeds both the Resilience Routing tab's monsoon scenario simulation and "
-        "the Cost-Benefit tab's climate resilience cost premium. Not derived from any dataset -- "
+        "the Cost Screening tab's climate resilience cost premium. Not derived from any dataset -- "
         "you're telling the tool what you already know about this area."
     )
     flood_prone_edges = st.multiselect(
@@ -539,7 +539,7 @@ with st.expander("🌧️ Climate risk: mark flood-prone corridors (optional, sh
 # Tabs
 # ---------------------------------------------------------------------------
 tab_priority, tab_cost, tab_map, tab_resilience, tab_baseline, tab_notes = st.tabs(
-    ["🧬 Conductance Ranking", "💰 Cost-Benefit", "🗺️ Map", "🚧 Resilience Routing", "🔬 Baseline Comparison", "📖 Model Notes"]
+    ["🧬 Conductance Ranking", "💰 Cost Screening", "🗺️ Map", "🚧 Resilience Routing", "🔬 Baseline Comparison", "📖 Model Notes"]
 )
 
 with tab_priority:
@@ -649,7 +649,7 @@ with tab_priority:
                 )
 
 with tab_cost:
-    st.markdown('<div class="section-tag">Return on investment</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-tag">Heuristic cost screening</div>', unsafe_allow_html=True)
 
     top_value = ranked_value.iloc[0]
     top_label = top_value.get("road_name", f"{top_value['u']} to {top_value['v']}") if has_road_name else f"{top_value['u']} to {top_value['v']}"
