@@ -1,29 +1,14 @@
 """
-Replace hand-picked node demand multipliers with a real, data-derived
-proxy: point-of-interest (POI) density around each landmark.
+Estimate a destination-activity proxy from OpenStreetMap point-of-interest
+(POI) density around network nodes.
 
-RUN THIS IN COLAB, same as extract_gulshan_network.py -- needs live
-access to OSM's Overpass API.
-
-Why POI density: the number of shops, schools, offices, clinics, and
-other destinations near a node is a reasonable, defensible proxy for how
-much commuter traffic that node actually pulls -- more places people
-want to go = more demand pull. It's not perfect (it doesn't capture
-residential origin density, only destination density), but it's real
-data instead of a guess, and it's free.
-
-Two usage modes:
-
-1. Small, named landmark set (original 8 nodes):
-    from extract_gulshan_network import resolve_nodes
-    G, coords = resolve_nodes()
-    demands = compute_poi_demand(coords)
-
-2. Full auto-discovered network (dozens of generic N<osmid> nodes),
-   after running auto_discover_corridors.py:
+The supported repository workflow is the full auto-discovered road network:
     python compute_node_demand.py --full full_network_nodes.csv
-   This writes node_demand.csv (columns: node, demand) which app.py can
-   load directly alongside your edges CSV.
+
+This writes node_demand.csv for the dashboard. POI density is not observed
+trip demand: it does not identify trip origins, destinations, volumes, or
+mode choice. Results depend on OSM tagging completeness and the chosen
+search radius.
 """
 
 import time
@@ -143,27 +128,28 @@ def compute_poi_demand_from_nodes_csv(nodes_csv_path, center_point, radius_m,
 
 
 if __name__ == "__main__":
-    import sys
+    import argparse
 
-    if "--full" in sys.argv:
-        idx = sys.argv.index("--full")
-        nodes_csv = sys.argv[idx + 1] if len(sys.argv) > idx + 1 else "full_network_nodes.csv"
-        # Must match the CENTER_POINT and RADIUS_M used in auto_discover_corridors.py
-        from auto_discover_corridors import CENTER_POINT, RADIUS_M
-        compute_poi_demand_from_nodes_csv(nodes_csv, CENTER_POINT, RADIUS_M)
-    else:
-        from extract_gulshan_network import resolve_nodes, NODE_COORDS_OVERRIDE
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--full",
+        action="store_true",
+        help="required: compute POI demand for the full-network node CSV",
+    )
+    parser.add_argument(
+        "nodes_csv",
+        nargs="?",
+        default="full_network_nodes.csv",
+        help="node CSV written by auto_discover_corridors.py",
+    )
+    args = parser.parse_args()
+    if not args.full:
+        parser.error(
+            "the landmark extraction workflow is not included in this repository; "
+            "run with --full after auto_discover_corridors.py"
+        )
 
-        G, coords = resolve_nodes()
-        demands = compute_poi_demand(coords)
+    # Must match the CENTER_POINT and RADIUS_M used by auto_discover_corridors.py.
+    from auto_discover_corridors import CENTER_POINT, RADIUS_M
 
-        print("\nPOI-derived demand multipliers (replaces hand-picked values):")
-        for name, val in demands.items():
-            print(f"  {name:20s} {val}")
-
-        print("\nPaste this into app.py / your analysis in place of DEFAULT_DEMANDS:")
-        print("NODE_DEMANDS = {")
-        for name, val in demands.items():
-            print(f'    "{name}": {val},')
-        print("}")
-
+    compute_poi_demand_from_nodes_csv(args.nodes_csv, CENTER_POINT, RADIUS_M)
