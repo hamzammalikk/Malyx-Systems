@@ -47,8 +47,8 @@ def add_cost_benefit(result_df, node_demands, cost_per_km=None):
 
     Adds:
         estimated_cost_pkr_m : rough widening cost estimate
-        demand_pressure      : avg_demand / bio_efficiency -- a quick proxy
-                                for unmet demand, NOT a simulated outcome
+        demand_pressure      : avg_demand / bio_efficiency -- a proxy ratio
+                                with no direct interpretation as unmet trips
         value_ratio           : demand_pressure / cost -- fast to compute
                                 for every row, but a heuristic; it is
                                 not a traffic-relief or benefit estimate.
@@ -90,7 +90,6 @@ def simulate_widening(edges_df, edge_id, congestion_reduction_frac=0.4, upgrade_
     They do not establish that widening causes this congestion reduction.
     Returns a modified copy of edges_df.
     """
-    from physarum_model import ROAD_OMEGA
     df = edges_df.copy()
     mask = df["edge_id"] == edge_id
     if not mask.any():
@@ -118,9 +117,8 @@ def verify_top_candidates(edges_df, node_demands, ranked_df, decay_rate, mu, gen
         independent-edge model (physarum_model.run_simulation) for
         backward compatibility. Pass a wrapped version of
         physarum_network_model.run_network_simulation to keep this
-        consistent with network-coupled mode -- otherwise you'd be
-        ranking with one model and verifying with another, which would
-        silently misrepresent what "verified" means. Must have the
+        consistent with network-coupled mode -- otherwise the score changes would
+        compare different model configurations. Must have the
         signature (edges_df, node_demands, decay_rate, mu, generations)
         -> DataFrame with a bio_efficiency column.
 
