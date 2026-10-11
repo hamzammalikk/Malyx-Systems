@@ -430,6 +430,12 @@ if result.empty:
     st.stop()
 ranked_value = cached_cost_benefit(result, node_demands, cost_per_km)
 has_road_name = "road_name" in edges_df.columns
+if "note" in result.columns and result["note"].astype(str).str.contains("disconnected").any():
+    st.warning(
+        "Some corridors are disconnected from the selected sink and use the independent-edge "
+        "fallback. Their conductance scores are produced by a different model and should not be "
+        "ranked directly against network-coupled scores."
+    )
 
 if sim_mode == "Network-Coupled (recommended)":
     sink_assumption = cached_sink_node(edges_df, node_demands)
