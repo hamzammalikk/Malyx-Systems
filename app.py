@@ -716,7 +716,7 @@ with tab_cost:
     st.caption(
         "This applies hypothetical road-class and congestion changes to each candidate and reruns "
         "the model. It reports internal conductance-score changes only; it does not predict "
-        "real traffic relief, travel times, or economic return.""
+        "real traffic relief, travel times, or economic return."
     )
     verify_n = st.slider("Analyze top N heuristic candidates", 5, 30, 15, 5)
     if st.button("🔬 Run model-score scenarios"):
