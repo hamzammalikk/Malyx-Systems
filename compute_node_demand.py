@@ -142,6 +142,7 @@ if __name__ == "__main__":
         default="full_network_nodes.csv",
         help="node CSV written by auto_discover_corridors.py",
     )
+    parser.add_argument("--place", help="Place name/address to geocode; use the same query as the edge extraction.")
     parser.add_argument("--lat", type=float, default=None, help="Study-area center latitude.")
     parser.add_argument("--lon", type=float, default=None, help="Study-area center longitude.")
     parser.add_argument("--radius-m", type=int, default=None, help="Network radius in meters.")
@@ -154,12 +155,19 @@ if __name__ == "__main__":
             "run with --full after auto_discover_corridors.py"
         )
 
-    # Must match the CENTER_POINT and RADIUS_M used by auto_discover_corridors.py.
     from auto_discover_corridors import CENTER_POINT, RADIUS_M
 
+    if args.place and (args.lat is not None or args.lon is not None):
+        parser.error("use --place or --lat/--lon, not both")
     if (args.lat is None) != (args.lon is None):
         parser.error("--lat and --lon must be supplied together")
-    center = (args.lat, args.lon) if args.lat is not None else CENTER_POINT
+    if args.place:
+        center = ox.geocode(args.place)
+        print(f"Geocoded {args.place!r} to center {center}.")
+    elif args.lat is not None:
+        center = (args.lat, args.lon)
+    else:
+        center = CENTER_POINT
     radius = args.radius_m if args.radius_m is not None else RADIUS_M
     if radius <= 0:
         parser.error("--radius-m must be positive")
