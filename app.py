@@ -357,13 +357,29 @@ if uploaded is not None and not use_sample:
     valid_coordinate_count = int(valid_coordinate_rows.sum())
     invalid_coordinate_count = len(edges_df) - valid_coordinate_count if not missing_coordinate_columns else 0
     has_coords = valid_coordinate_count > 0
+    edges_df["congestion"] = pd.to_numeric(edges_df["congestion"], errors="coerce")
     if edges_df["congestion"].isnull().any():
         st.error(
-            "Some rows have no congestion value. Fill in the congestion column "
-            "(1-10) before running the model. Record its source, date, and collection method. "
-            ""
+            "Some rows have no valid congestion value. Fill in the congestion column "
+            "(1-10) before running the model. Record its source, date, and collection method."
         )
         st.stop()
+    if edges_df["congestion"].nunique(dropna=True) == 1:
+        congestion_value = float(edges_df["congestion"].iloc[0])
+        if congestion_value == 5:
+            st.warning(
+                "All uploaded corridors have congestion=5. The repository's network "
+                "extraction workflow assigns 5 as a placeholder; this is not an observed "
+                "traffic measurement. These results cannot distinguish congestion between "
+                "corridors. Replace the values with sourced, dated observations before using "
+                "the scores as congestion analysis. With this input, scores are driven by "
+                "network structure, the demand proxy, distance, and road class."
+            )
+        else:
+            st.info(
+                f"All uploaded corridors have the same congestion value ({congestion_value:g}). "
+                "The model therefore has no corridor-to-corridor congestion variation to use."
+            )
 else:
     edges_df = SAMPLE_EDGES
     missing_coordinate_columns = COORDINATE_COLUMNS.copy()
