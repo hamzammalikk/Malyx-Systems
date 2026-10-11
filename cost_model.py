@@ -1,18 +1,14 @@
 """
-Cost-benefit layer on top of the Physarum bio-efficiency ranking.
+Cost and model-score heuristics for scenario screening.
 
-Bio-efficiency alone tells you which corridors are structurally weak.
-It doesn't tell you which ones are worth fixing first given a limited
-budget -- a cheap collector road fix might deliver more relief per rupee
-than an expensive main-artery widening. This module adds that second
-lens.
-
-IMPORTANT: the default PKR/km costs below are placeholder assumptions
-for demo purposes, not verified civil engineering estimates. Say this
-explicitly if asked in the pitch -- the right move for a real submission
-is to get actual per-km widening cost figures from KDA/SULTA/NHA
-published tenders and swap them in. The app lets you edit these values
-live in the sidebar for exactly this reason.
+The default PKR/km values are unverified placeholder assumptions. The
+demand_pressure/value_ratio values are heuristic ratios, not estimates of
+traveler delay, congestion relief, or economic return. The intervention
+scenario function changes model inputs and measures the resulting internal
+conductance-score change; it does not simulate engineering capacity,
+vehicle flows, travel times, or benefits. Replace these assumptions and
+outputs with locally sourced costs and a validated traffic assignment
+model before using them for investment decisions.
 """
 
 import pandas as pd
@@ -54,11 +50,10 @@ def add_cost_benefit(result_df, node_demands, cost_per_km=None):
         demand_pressure      : avg_demand / bio_efficiency -- a quick proxy
                                 for unmet demand, NOT a simulated outcome
         value_ratio           : demand_pressure / cost -- fast to compute
-                                for every row, but a heuristic. For your
-                                actual top candidates, use
-                                verify_top_candidates() below instead,
-                                which simulates the real before/after
-                                impact rather than approximating it.
+                                for every row, but a heuristic; it is
+                                not a traffic-relief or benefit estimate.
+                                verify_top_candidates() measures only the
+                                model-score response to assumed input changes.
     """
     cost_map = cost_per_km or DEFAULT_COST_PER_KM
     df = result_df.copy()
@@ -88,11 +83,12 @@ def simulate_widening(edges_df, edge_id, congestion_reduction_frac=0.4, upgrade_
     """
     Models a concrete widening intervention on ONE corridor:
       - road class upgraded one tier (Internal -> Collector -> Main Artery)
-      - congestion reduced by congestion_reduction_frac (default: 40% less,
-        representing added capacity easing traffic), floored at 1
+      - input congestion score reduced by congestion_reduction_frac
+        (default 40%), floored at 1
 
-    These are modeling assumptions, not measured outcomes -- state them
-    plainly if asked. Returns a modified copy of edges_df.
+    These are hypothetical input perturbations, not engineering effects.
+    They do not establish that widening causes this congestion reduction.
+    Returns a modified copy of edges_df.
     """
     from physarum_model import ROAD_OMEGA
     df = edges_df.copy()
@@ -112,12 +108,11 @@ def simulate_widening(edges_df, edge_id, congestion_reduction_frac=0.4, upgrade_
 def verify_top_candidates(edges_df, node_demands, ranked_df, decay_rate, mu, generations,
                            cost_per_km=None, top_n=15, simulation_fn=None):
     """
-    The rigorous version: for each of the top_n candidates (by heuristic
-    value_ratio), actually simulate the widening intervention and re-run
-    the full network, then measure the REAL resulting change in that
-    corridor's bio-efficiency -- not a static formula. This is slower
-    (one full simulation per candidate) so it's only run for a small
-    top_n, not the whole network.
+    For each of the top_n heuristic candidates, apply the assumed input
+    changes and re-run the selected model. The returned simulated_gain is
+    a change in internal bio_efficiency, not measured or forecast traffic
+    relief, travel-time savings, or economic return. This is scenario
+    sensitivity analysis, not empirical validation.
 
     simulation_fn: which model to re-run with. Defaults to the
         independent-edge model (physarum_model.run_simulation) for
@@ -129,9 +124,9 @@ def verify_top_candidates(edges_df, node_demands, ranked_df, decay_rate, mu, gen
         signature (edges_df, node_demands, decay_rate, mu, generations)
         -> DataFrame with a bio_efficiency column.
 
-    Returns a DataFrame with: edge_id, bio_efficiency_before,
-    bio_efficiency_after, simulated_gain, estimated_cost_pkr_m,
-    simulated_value_ratio -- sorted by simulated_value_ratio descending.
+    Returns model-score changes plus heuristic costs and ratios, sorted
+    by simulated_value_ratio. Column names are retained for compatibility;
+    none of these fields is a measured benefit.
     """
     if simulation_fn is None:
         from physarum_model import run_simulation as simulation_fn
