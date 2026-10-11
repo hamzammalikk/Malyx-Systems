@@ -317,10 +317,10 @@ with st.sidebar:
             f"!python auto_discover_corridors.py {location_args}",
             f"!python compute_node_demand.py --full full_network_nodes.csv {location_args}",
             "from google.colab import files",
-            "files.download(\\"full_network_edges.csv\\")",
-            "files.download(\\"node_demand.csv\\")",
+            "files.download(\"full_network_edges.csv\")",
+            "files.download(\"node_demand.csv\")",
         ]
-        st.code("\\n".join(commands), language="bash")
+        st.code("\n".join(commands), language="bash")
         st.caption("Area names are geocoded to a center point, then the selected radius is used around it. Include city/country to help resolve ambiguous names. Node demand is an OSM point-of-interest activity proxy, not observed trips; congestion defaults to a placeholder.")
     use_sample = st.checkbox("Use illustrative sample dataset instead", value=uploaded is None)
 
