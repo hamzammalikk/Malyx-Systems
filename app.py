@@ -297,19 +297,31 @@ with st.sidebar:
         key="demand_csv",
     )
     with st.expander("Get edge and demand files for a new area"):
-        st.markdown("Use free OpenStreetMap data in a new Google Colab notebook. Clone the repository, run the two scripts with your study-area center, then download the two CSVs needed by this app.")
-        st.code(
-            "!git clone https://github.com/hamzammalikk/Malyx-Systems.git\n"
-            "%cd Malyx-Systems\n"
-            "!pip install osmnx pandas\n"
-            "!python auto_discover_corridors.py --lat 24.86 --lon 67.01 --radius-m 2500\n"
-            "!python compute_node_demand.py --full full_network_nodes.csv --lat 24.86 --lon 67.01 --radius-m 2500\n"
-            "from google.colab import files\n"
-            "files.download(\"full_network_edges.csv\")\n"
-            "files.download(\"node_demand.csv\")",
-            language="bash",
-        )
-        st.caption("Replace the example coordinates and radius. Node demand is an OpenStreetMap point-of-interest activity proxy, not observed trips. Congestion defaults to a placeholder unless you supply observations.")
+        st.markdown("Use free OpenStreetMap data in a new Google Colab notebook. Choose a place name or exact coordinates, then download the two CSVs for this app.")
+        area_mode = st.radio("Area lookup", ["Area name", "Coordinates"], horizontal=True, key="area_lookup_mode")
+        radius_m = int(st.number_input("Study radius (meters)", min_value=500, max_value=20000, value=2500, step=500))
+        if area_mode == "Area name":
+            place_name = st.text_input("Area name (include city and country)", value="Gulshan-e-Iqbal, Karachi, Pakistan")
+            location_args = f'--place "{place_name}" --radius-m {radius_m}'
+        else:
+            area_lat, area_lon = st.columns(2)
+            with area_lat:
+                center_lat = st.number_input("Center latitude", value=24.91536, format="%.6f")
+            with area_lon:
+                center_lon = st.number_input("Center longitude", value=67.08332, format="%.6f")
+            location_args = f"--lat {center_lat:.6f} --lon {center_lon:.6f} --radius-m {radius_m}"
+        commands = [
+            "!git clone https://github.com/hamzammalikk/Malyx-Systems.git",
+            "%cd Malyx-Systems",
+            "!pip install osmnx pandas",
+            f"!python auto_discover_corridors.py {location_args}",
+            f"!python compute_node_demand.py --full full_network_nodes.csv {location_args}",
+            "from google.colab import files",
+            "files.download(\\"full_network_edges.csv\\")",
+            "files.download(\\"node_demand.csv\\")",
+        ]
+        st.code("\\n".join(commands), language="bash")
+        st.caption("Area names are geocoded to a center point, then the selected radius is used around it. Include city/country to help resolve ambiguous names. Node demand is an OSM point-of-interest activity proxy, not observed trips; congestion defaults to a placeholder.")
     use_sample = st.checkbox("Use illustrative sample dataset instead", value=uploaded is None)
 
     st.header("Model parameters")
