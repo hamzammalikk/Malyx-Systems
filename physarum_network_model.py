@@ -5,16 +5,11 @@ conductances. This is a network-coupled extension of the Physarum solver,
 not a calibrated traffic-assignment model. The single-sink demand setup and
 undirected road representation are explicit modeling assumptions.
 
-WHY THIS EXISTS: physarum_model.py evolves each edge's conductance based
-only on that edge's own static demand/impedance ratio -- no edge ever
-references another edge's state. We proved (baseline_model.py) this makes
-its 30-generation simulation mathematically equivalent, in rank order, to
-a one-line static formula, on both real and randomized test networks. The
-iteration wasn't adding information for ranking. This module fixes the
-actual cause: it solves for how current distributes across the WHOLE
-network at each generation (Kirchhoff's current law, exactly as Tero et
-al. do), so a corridor's flux genuinely depends on the conductance of
-every other corridor competing for the same flow toward the sink.
+The independent-edge model is retained as a comparison baseline. This
+module couples edge scores through a shared flow solution. The flow solve
+uses the project's impedance as effective resistance, but the impedance
+formula and the conversion of POI density to source flow are project
+assumptions, not calibrated transportation parameters.
 
 SOURCE/SINK MODELING ASSUMPTION -- stated explicitly, not hidden: real
 urban traffic is multi-origin, multi-destination, which is expensive to
@@ -39,8 +34,8 @@ from scipy.sparse.linalg import spsolve
 from physarum_model import impedance, reinforcement
 
 
-CONDUCTANCE_FLOOR = 1e-6  # never exactly zero -- avoids singular matrices
-                          # from a fully-decayed edge disconnecting a node
+CONDUCTANCE_FLOOR = 1e-6  # numerical floor to keep the connected-component
+                          # Laplacian nonsingular as edges decay
 
 
 def run_network_simulation(edges_df, node_demands, decay_rate=0.15, mu=1.0,
@@ -133,7 +128,9 @@ def run_network_simulation(edges_df, node_demands, decay_rate=0.15, mu=1.0,
     coupled_edges["bio_efficiency"] = coupled_edges["edge_id"].map(conductance)
     direction_note = ""
     if "two_way" in df.columns:
-        one_way = ~df["two_way"].fillna(True).astype(bool)
+        one_way = df["two_way"].astype(str).str.strip().str.lower().isin(
+            ["false", "0", "no"]
+        )
         if one_way.any():
             direction_note = "one-way restrictions ignored by undirected adaptation"
 
