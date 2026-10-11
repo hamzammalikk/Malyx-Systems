@@ -142,6 +142,11 @@ if __name__ == "__main__":
         default="full_network_nodes.csv",
         help="node CSV written by auto_discover_corridors.py",
     )
+    parser.add_argument("--lat", type=float, default=None, help="Study-area center latitude.")
+    parser.add_argument("--lon", type=float, default=None, help="Study-area center longitude.")
+    parser.add_argument("--radius-m", type=int, default=None, help="Network radius in meters.")
+    parser.add_argument("--poi-radius-m", type=int, default=RADIUS_M, help="POI count radius around each node.")
+    parser.add_argument("--out", default="node_demand.csv", help="Output demand CSV.")
     args = parser.parse_args()
     if not args.full:
         parser.error(
@@ -152,4 +157,12 @@ if __name__ == "__main__":
     # Must match the CENTER_POINT and RADIUS_M used by auto_discover_corridors.py.
     from auto_discover_corridors import CENTER_POINT, RADIUS_M
 
-    compute_poi_demand_from_nodes_csv(args.nodes_csv, CENTER_POINT, RADIUS_M)
+    if (args.lat is None) != (args.lon is None):
+        parser.error("--lat and --lon must be supplied together")
+    center = (args.lat, args.lon) if args.lat is not None else CENTER_POINT
+    radius = args.radius_m if args.radius_m is not None else RADIUS_M
+    if radius <= 0:
+        parser.error("--radius-m must be positive")
+    compute_poi_demand_from_nodes_csv(
+        args.nodes_csv, center, radius, poi_radius_m=args.poi_radius_m, out_path=args.out
+    )
