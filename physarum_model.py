@@ -52,18 +52,23 @@ def reinforcement(Q, mu=1.0):
     return (Q ** mu) / (1 + Q ** mu)
 
 
-def run_simulation(edges_df, node_demands, decay_rate=0.15, mu=1.0, generations=30):
+def run_simulation(edges_df, node_demands, decay_rate=0.15, mu=1.0,
+                   generations=30, tolerance=1e-5, min_generations=10,
+                   stable_iterations=3):
     """
     edges_df columns required: edge_id, u, v, distance_km, road_class, congestion
     node_demands: dict of node name -> demand multiplier
     decay_rate: baseline conductance decay per generation
     mu: saturation sharpness of the reinforcement function (see docstring)
-    generations: number of adaptation steps to run
+    generations: maximum adaptation steps
+    tolerance: relative maximum-conductance change required for stability
+    min_generations: minimum steps before convergence can be declared
+    stable_iterations: consecutive stable steps required to stop
 
-    Returns the input columns plus 'impedance' and 'bio_efficiency'
-    (conductance after exactly `generations` iterations), sorted by
-    that model score. This independent-edge baseline is not a network flow
-    solve and does not check numerical convergence.
+    Returns the input columns plus 'impedance', 'bio_efficiency',
+    'iterations_run', and 'converged'. Convergence means only numerical
+    stability under this model's update rule, not validation against traffic.
+    This independent-edge baseline is not a network flow solve.
     """
     df = edges_df.copy()
     df["impedance"] = df.apply(
@@ -71,7 +76,12 @@ def run_simulation(edges_df, node_demands, decay_rate=0.15, mu=1.0, generations=
     )
     conductance = {row.edge_id: 1.0 for row in df.itertuples()}
 
-    for _ in range(generations):
+    stable_count = 0
+    converged = False
+    iterations_run = 0
+
+    for generation in range(generations):
+        previous = conductance.copy()
         flux = {}
         for row in df.itertuples():
             u_demand = node_demands.get(row.u, 1.0)
@@ -85,7 +95,23 @@ def run_simulation(edges_df, node_demands, decay_rate=0.15, mu=1.0, generations=
             delta = reinforcement(flux[row.edge_id], mu) - (decay_rate * c)
             conductance[row.edge_id] = max(0.0, c + delta)
 
+        iterations_run = generation + 1
+        scale = max(1.0, max(conductance.values(), default=0.0))
+        max_change = max(
+            (abs(conductance[eid] - previous[eid]) for eid in conductance),
+            default=0.0,
+        )
+        if generation + 1 >= min_generations and max_change <= tolerance * scale:
+            stable_count += 1
+            if stable_count >= stable_iterations:
+                converged = True
+                break
+        else:
+            stable_count = 0
+
     df["bio_efficiency"] = df["edge_id"].map(conductance)
+    df["iterations_run"] = iterations_run
+    df["converged"] = converged
     return df.sort_values("bio_efficiency")
 
 
