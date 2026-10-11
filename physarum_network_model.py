@@ -55,7 +55,9 @@ def run_network_simulation(edges_df, node_demands, decay_rate=0.15, mu=1.0,
 
     Returns (result_df, sink_node_used). 'converged' records numerical
     stability under this model's update rule, not traffic validation.
-    'note' flags independent fallback scores and ignored one-way restrictions.
+    Edges outside the sink component receive no coupled score (NaN) rather
+    than an incompatible independent-model score. 'note' also flags ignored
+    one-way restrictions.
     """
     df = edges_df.copy()
     df["impedance"] = df.apply(
@@ -161,16 +163,17 @@ def run_network_simulation(edges_df, node_demands, decay_rate=0.15, mu=1.0,
     coupled_edges["note"] = direction_note
 
     if not isolated_edges.empty:
-        from physarum_model import run_simulation as _independent_sim
-        iso_input = isolated_edges.drop(columns=["impedance"])
-        iso_scored = _independent_sim(
-            iso_input, node_demands, decay_rate, mu, generations,
-            tolerance, min_generations, stable_iterations,
-        )
-        iso_scored["note"] = "disconnected from sink -- scored independently, not network-coupled"
+        # These edges cannot participate in the source-to-sink solve.
+        # Leave their scores missing instead of mixing a different model's
+        # scale into the network-coupled ranking.
+        iso_unscored = isolated_edges.copy()
+        iso_unscored["bio_efficiency"] = np.nan
+        iso_unscored["iterations_run"] = 0
+        iso_unscored["converged"] = False
+        iso_unscored["note"] = "disconnected from selected sink -- no coupled score"
         if direction_note:
-            iso_scored["note"] += "; " + direction_note
-        result = pd.concat([coupled_edges, iso_scored], ignore_index=True, sort=False)
+            iso_unscored["note"] += "; " + direction_note
+        result = pd.concat([coupled_edges, iso_unscored], ignore_index=True, sort=False)
     else:
         result = coupled_edges
 
