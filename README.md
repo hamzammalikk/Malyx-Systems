@@ -46,8 +46,10 @@ versions is not present on the default branch.
 - The adaptation solver is undirected. A `two_way` column is respected by
   the routing feature, but one-way restrictions are not enforced in the
   Physarum flow solve.
-- Results are final-iteration conductance scores. The configured iteration
-  count is fixed; the code does not currently test convergence.
+- The model stops early if the maximum relative conductance change stays
+  below tolerance for three consecutive iterations after at least ten steps;
+  otherwise it reaches the iteration limit. Numerical stability does not
+  validate the result against observed traffic or imply a global optimum.
 - Disconnected edges are scored with the independent-edge model and marked
   in the result notes. Do not treat those scores as directly comparable to
   coupled scores without separate analysis.
