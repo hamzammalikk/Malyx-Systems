@@ -39,7 +39,8 @@ CONDUCTANCE_FLOOR = 1e-6  # numerical floor to keep the connected-component
 
 
 def run_network_simulation(edges_df, node_demands, decay_rate=0.15, mu=1.0,
-                            generations=30, sink_node=None):
+                            generations=30, sink_node=None, tolerance=1e-5,
+                            min_generations=10, stable_iterations=3):
     """
     edges_df: edge_id, u, v, distance_km, road_class, congestion.
         Optional two_way is not enforced by this undirected solver; one-way
@@ -47,12 +48,14 @@ def run_network_simulation(edges_df, node_demands, decay_rate=0.15, mu=1.0,
     node_demands: dict node -> demand multiplier
     sink_node: which node absorbs all network flow. Defaults to the
         highest-demand node if not given.
+    generations: maximum adaptation steps
+    tolerance: relative maximum-conductance change required for stability
+    min_generations: minimum steps before convergence can be declared
+    stable_iterations: consecutive stable steps required to stop
 
-    Returns (result_df, sink_node_used). 'bio_efficiency' is the final
-    adaptive conductance after the configured number of iterations; the
-    function does not test convergence. 'note' flags disconnected edges
-    scored with the independent fallback and warns if one-way restrictions
-    were ignored.
+    Returns (result_df, sink_node_used). 'converged' records numerical
+    stability under this model's update rule, not traffic validation.
+    'note' flags independent fallback scores and ignored one-way restrictions.
     """
     df = edges_df.copy()
     df["impedance"] = df.apply(
@@ -90,7 +93,12 @@ def run_network_simulation(edges_df, node_demands, decay_rate=0.15, mu=1.0,
 
     edge_list = list(coupled_edges.itertuples())
 
+    stable_count = 0
+    converged = False
+    iterations_run = 0
+
     for gen in range(generations):
+        previous = conductance.copy()
         L = lil_matrix((n_free, n_free))
         edge_weight = {}
         for row in edge_list:
@@ -124,8 +132,24 @@ def run_network_simulation(edges_df, node_demands, decay_rate=0.15, mu=1.0,
             delta = reinforcement(flux[row.edge_id], mu) - (decay_rate * c)
             conductance[row.edge_id] = max(CONDUCTANCE_FLOOR, c + delta)
 
+        iterations_run = gen + 1
+        scale = max(1.0, max(conductance.values(), default=0.0))
+        max_change = max(
+            (abs(conductance[eid] - previous[eid]) for eid in conductance),
+            default=0.0,
+        )
+        if gen + 1 >= min_generations and max_change <= tolerance * scale:
+            stable_count += 1
+            if stable_count >= stable_iterations:
+                converged = True
+                break
+        else:
+            stable_count = 0
+
     coupled_edges = coupled_edges.copy()
     coupled_edges["bio_efficiency"] = coupled_edges["edge_id"].map(conductance)
+    coupled_edges["iterations_run"] = iterations_run
+    coupled_edges["converged"] = converged
     direction_note = ""
     if "two_way" in df.columns:
         one_way = df["two_way"].astype(str).str.strip().str.lower().isin(
@@ -139,7 +163,10 @@ def run_network_simulation(edges_df, node_demands, decay_rate=0.15, mu=1.0,
     if not isolated_edges.empty:
         from physarum_model import run_simulation as _independent_sim
         iso_input = isolated_edges.drop(columns=["impedance"])
-        iso_scored = _independent_sim(iso_input, node_demands, decay_rate, mu, generations)
+        iso_scored = _independent_sim(
+            iso_input, node_demands, decay_rate, mu, generations,
+            tolerance, min_generations, stable_iterations,
+        )
         iso_scored["note"] = "disconnected from sink -- scored independently, not network-coupled"
         if direction_note:
             iso_scored["note"] += "; " + direction_note
