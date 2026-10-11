@@ -1,29 +1,33 @@
 """
-Physarum-inspired urban network optimization -- core model, v2.
+Physarum-inspired conductance adaptation and an independent-edge baseline.
 
-v1 fix (previous version) added an ad-hoc quadratic damping term (gamma)
-to stop the original formula from growing exponentially forever. It
-worked, but "gamma" wasn't grounded in anything -- it was invented purely
-for numerical stability.
+The reinforcement response is a normalized saturating form,
+f(Q) = Q^mu / (1 + Q^mu), related to the saturating response studied for
+multi-food-source Physarum networks by Tero et al. (2008). The normalization
+and its parameters are modeling choices here; they have not been calibrated
+to biological or urban traffic observations.
 
-v2 replaces that patch with the reinforcement rule actually used in the
-Physarum literature (Tero, Kobayashi & Nakagaki, 2007, "A mathematical
-model for adaptive transport network in path finding by true slime
-mold", Journal of Theoretical Biology; and the follow-up Tero et al.
-2010 Science paper that replicated the Tokyo rail network with this
-exact mechanism):
+The adaptation step is:
+    D_e <- max(0, D_e + f(|Q_e|) - decay_rate * D_e)
 
-    dD_ij/dt = f(Q_ij) - decay * D_ij
-    f(Q) = Q^mu / (1 + Q^mu)          [saturating/Hill-type response]
+This module's run_simulation() is an independent-edge approximation: each
+edge uses its own mean endpoint-demand proxy and impedance. It does not solve
+network flow conservation. Use physarum_network_model.run_network_simulation
+for the network-coupled model. That model also has explicit single-sink and
+undirected-network assumptions.
 
-f(Q) naturally bounds between 0 and 1 as flux grows, so conductance
-converges to a fixed point at D* <= 1/decay without needing any invented
-damping term. mu controls how sharply the tube "commits" once flux
-crosses a threshold -- mu=1 is the standard mild-saturation case; higher
-mu makes the network behave more like a winner-take-all switch.
+The iteration limit is set by the caller. The solver stops early only after
+the maximum relative conductance change remains below tolerance for several
+consecutive steps. This is a numerical stopping check, not a guarantee of a
+global optimum or agreement with observed traffic.
 
-This is the single source of truth imported by extraction/analysis
-scripts and the Streamlit app.
+References:
+- Tero, Kobayashi & Nakagaki (2007), J. Theor. Biol. 244, 553-564.
+  https://doi.org/10.1016/j.jtbi.2006.07.015
+- Tero et al. (2008), Theory in Biosciences 127, 89-94.
+  https://doi.org/10.1007/s12064-008-0037-9
+- Tero et al. (2010), Science 327, 439-442.
+  https://doi.org/10.1126/science.1177894
 """
 
 import pandas as pd
@@ -43,22 +47,29 @@ def impedance(distance_km, congestion, road_class):
 
 
 def reinforcement(Q, mu=1.0):
-    """Saturating reinforcement function f(Q) = Q^mu / (1 + Q^mu)."""
+    """Normalized saturating response f(|Q|) = |Q|^mu / (1 + |Q|^mu)."""
     if Q <= 0:
         return 0.0
     return (Q ** mu) / (1 + Q ** mu)
 
 
-def run_simulation(edges_df, node_demands, decay_rate=0.15, mu=1.0, generations=30):
+def run_simulation(edges_df, node_demands, decay_rate=0.15, mu=1.0,
+                   generations=30, tolerance=1e-5, min_generations=10,
+                   stable_iterations=3):
     """
     edges_df columns required: edge_id, u, v, distance_km, road_class, congestion
     node_demands: dict of node name -> demand multiplier
     decay_rate: baseline conductance decay per generation
     mu: saturation sharpness of the reinforcement function (see docstring)
-    generations: number of adaptation steps to run
+    generations: maximum adaptation steps
+    tolerance: relative maximum-conductance change required for stability
+    min_generations: minimum steps before convergence can be declared
+    stable_iterations: consecutive stable steps required to stop
 
-    Returns a DataFrame with the original columns plus 'impedance' and
-    'bio_efficiency' (final converged conductance), sorted weakest first.
+    Returns the input columns plus 'impedance', 'bio_efficiency',
+    'iterations_run', and 'converged'. Convergence means only numerical
+    stability under this model's update rule, not validation against traffic.
+    This independent-edge baseline is not a network flow solve.
     """
     df = edges_df.copy()
     df["impedance"] = df.apply(
@@ -66,7 +77,12 @@ def run_simulation(edges_df, node_demands, decay_rate=0.15, mu=1.0, generations=
     )
     conductance = {row.edge_id: 1.0 for row in df.itertuples()}
 
-    for _ in range(generations):
+    stable_count = 0
+    converged = False
+    iterations_run = 0
+
+    for generation in range(generations):
+        previous = conductance.copy()
         flux = {}
         for row in df.itertuples():
             u_demand = node_demands.get(row.u, 1.0)
@@ -80,7 +96,23 @@ def run_simulation(edges_df, node_demands, decay_rate=0.15, mu=1.0, generations=
             delta = reinforcement(flux[row.edge_id], mu) - (decay_rate * c)
             conductance[row.edge_id] = max(0.0, c + delta)
 
+        iterations_run = generation + 1
+        scale = max(1.0, max(conductance.values(), default=0.0))
+        max_change = max(
+            (abs(conductance[eid] - previous[eid]) for eid in conductance),
+            default=0.0,
+        )
+        if generation + 1 >= min_generations and max_change <= tolerance * scale:
+            stable_count += 1
+            if stable_count >= stable_iterations:
+                converged = True
+                break
+        else:
+            stable_count = 0
+
     df["bio_efficiency"] = df["edge_id"].map(conductance)
+    df["iterations_run"] = iterations_run
+    df["converged"] = converged
     return df.sort_values("bio_efficiency")
 
 

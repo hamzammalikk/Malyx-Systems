@@ -1,19 +1,15 @@
 """
-Network-coupled Physarum adaptation model -- genuine Kirchhoff-style flow
-conservation between corridors that share a node, matching the actual
-mechanism in Tero et al. (2007, 2010), rather than the per-edge-
-independent approximation in physarum_model.py.
+Network-coupled Physarum-inspired adaptation model. It solves a
+Kirchhoff flow problem over the connected component, then adapts corridor
+conductances. This is a network-coupled extension of the Physarum solver,
+not a calibrated traffic-assignment model. The single-sink demand setup and
+undirected road representation are explicit modeling assumptions.
 
-WHY THIS EXISTS: physarum_model.py evolves each edge's conductance based
-only on that edge's own static demand/impedance ratio -- no edge ever
-references another edge's state. We proved (baseline_model.py) this makes
-its 30-generation simulation mathematically equivalent, in rank order, to
-a one-line static formula, on both real and randomized test networks. The
-iteration wasn't adding information for ranking. This module fixes the
-actual cause: it solves for how current distributes across the WHOLE
-network at each generation (Kirchhoff's current law, exactly as Tero et
-al. do), so a corridor's flux genuinely depends on the conductance of
-every other corridor competing for the same flow toward the sink.
+The independent-edge model is retained as a comparison baseline. This
+module couples edge scores through a shared flow solution. The flow solve
+uses the project's impedance as effective resistance, but the impedance
+formula and the conversion of POI density to source flow are project
+assumptions, not calibrated transportation parameters.
 
 SOURCE/SINK MODELING ASSUMPTION -- stated explicitly, not hidden: real
 urban traffic is multi-origin, multi-destination, which is expensive to
@@ -38,23 +34,30 @@ from scipy.sparse.linalg import spsolve
 from physarum_model import impedance, reinforcement
 
 
-CONDUCTANCE_FLOOR = 1e-6  # never exactly zero -- avoids singular matrices
-                          # from a fully-decayed edge disconnecting a node
+CONDUCTANCE_FLOOR = 1e-6  # numerical floor to keep the connected-component
+                          # Laplacian nonsingular as edges decay
 
 
 def run_network_simulation(edges_df, node_demands, decay_rate=0.15, mu=1.0,
-                            generations=30, sink_node=None):
+                            generations=30, sink_node=None, tolerance=1e-5,
+                            min_generations=10, stable_iterations=3):
     """
-    edges_df: edge_id, u, v, distance_km, road_class, congestion
+    edges_df: edge_id, u, v, distance_km, road_class, congestion.
+        Optional two_way is not enforced by this undirected solver; one-way
+        restrictions are respected only by routing.py.
     node_demands: dict node -> demand multiplier
     sink_node: which node absorbs all network flow. Defaults to the
         highest-demand node if not given.
+    generations: maximum adaptation steps
+    tolerance: relative maximum-conductance change required for stability
+    min_generations: minimum steps before convergence can be declared
+    stable_iterations: consecutive stable steps required to stop
 
-    Returns (result_df, sink_node_used). result_df has 'impedance' and
-    'bio_efficiency' columns, sorted weakest first, plus a 'note' column
-    flagging any edges outside the sink's connected component (these
-    can't participate in a flow-to-sink solve and are scored with the
-    simpler independent method instead, clearly marked).
+    Returns (result_df, sink_node_used). 'converged' records numerical
+    stability under this model's update rule, not traffic validation.
+    Edges outside the sink component receive no coupled score (NaN) rather
+    than an incompatible independent-model score. 'note' also flags ignored
+    one-way restrictions.
     """
     df = edges_df.copy()
     df["impedance"] = df.apply(
@@ -92,11 +95,19 @@ def run_network_simulation(edges_df, node_demands, decay_rate=0.15, mu=1.0,
 
     edge_list = list(coupled_edges.itertuples())
 
+    stable_count = 0
+    converged = False
+    iterations_run = 0
+
     for gen in range(generations):
+        previous = conductance.copy()
         L = lil_matrix((n_free, n_free))
         edge_weight = {}
         for row in edge_list:
-            w = conductance[row.edge_id] / max(row.distance_km, 1e-6)
+            # Treat the project's multi-criteria impedance as effective edge
+            # resistance. Using distance alone would silently discard the
+            # congestion and road-class inputs from the coupled flow solve.
+            w = conductance[row.edge_id] / max(row.impedance, 1e-6)
             edge_weight[row.edge_id] = w
             iu = node_idx.get(row.u)
             iv = node_idx.get(row.v)
@@ -123,16 +134,46 @@ def run_network_simulation(edges_df, node_demands, decay_rate=0.15, mu=1.0,
             delta = reinforcement(flux[row.edge_id], mu) - (decay_rate * c)
             conductance[row.edge_id] = max(CONDUCTANCE_FLOOR, c + delta)
 
+        iterations_run = gen + 1
+        scale = max(1.0, max(conductance.values(), default=0.0))
+        max_change = max(
+            (abs(conductance[eid] - previous[eid]) for eid in conductance),
+            default=0.0,
+        )
+        if gen + 1 >= min_generations and max_change <= tolerance * scale:
+            stable_count += 1
+            if stable_count >= stable_iterations:
+                converged = True
+                break
+        else:
+            stable_count = 0
+
     coupled_edges = coupled_edges.copy()
     coupled_edges["bio_efficiency"] = coupled_edges["edge_id"].map(conductance)
-    coupled_edges["note"] = ""
+    coupled_edges["iterations_run"] = iterations_run
+    coupled_edges["converged"] = converged
+    direction_note = ""
+    if "two_way" in df.columns:
+        one_way = df["two_way"].astype(str).str.strip().str.lower().isin(
+            ["false", "0", "no"]
+        )
+        if one_way.any():
+            direction_note = "one-way restrictions ignored by undirected adaptation"
+
+    coupled_edges["note"] = direction_note
 
     if not isolated_edges.empty:
-        from physarum_model import run_simulation as _independent_sim
-        iso_input = isolated_edges.drop(columns=["impedance"])
-        iso_scored = _independent_sim(iso_input, node_demands, decay_rate, mu, generations)
-        iso_scored["note"] = "disconnected from sink -- scored independently, not network-coupled"
-        result = pd.concat([coupled_edges, iso_scored], ignore_index=True, sort=False)
+        # These edges cannot participate in the source-to-sink solve.
+        # Leave their scores missing instead of mixing a different model's
+        # scale into the network-coupled ranking.
+        iso_unscored = isolated_edges.copy()
+        iso_unscored["bio_efficiency"] = np.nan
+        iso_unscored["iterations_run"] = 0
+        iso_unscored["converged"] = False
+        iso_unscored["note"] = "disconnected from selected sink -- no coupled score"
+        if direction_note:
+            iso_unscored["note"] += "; " + direction_note
+        result = pd.concat([coupled_edges, iso_unscored], ignore_index=True, sort=False)
     else:
         result = coupled_edges
 
