@@ -423,16 +423,17 @@ def build_main_map(result, edges_df, highlighted):
 
 result = cached_simulation(edges_df, node_demands, decay_rate, mu, generations, sim_mode)
 if "converged" in result.columns:
-    if result["converged"].all():
-        n_used = int(result["iterations_run"].max())
+    scored_rows = result[result["bio_efficiency"].notna()]
+    if not scored_rows.empty and scored_rows["converged"].all():
+        n_used = int(scored_rows["iterations_run"].max())
         st.success(
-            f"Model scores met the numerical stopping threshold within {n_used} iteration(s). "
+            f"Scored corridors met the numerical stopping threshold within {n_used} iteration(s). "
             "This indicates stability for the selected model and inputs; it does not validate traffic predictions."
         )
-    else:
-        n_used = int(result["iterations_run"].max())
+    elif not scored_rows.empty:
+        n_used = int(scored_rows["iterations_run"].max())
         st.warning(
-            f"At least part of the model did not meet the numerical stopping threshold within "
+            f"At least part of the scored network did not meet the numerical stopping threshold within "
             f"{n_used} iteration(s). Treat these scores as iteration-limited."
         )
 if result.empty:
