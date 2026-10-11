@@ -20,7 +20,7 @@ WARM_CMAP = LinearSegmentedColormap.from_list(
 )
 
 AUTHOR_NAME = "Muhammad Hamza Malik"
-AUTHOR_SUBTITLE = "BS Biotechnology, University of Karachi -- YIC-26 Sindh HEC Fellow"
+AUTHOR_SUBTITLE = "Road-network analysis and traffic-flow optimization"
 
 FAVICON_PATH = Path(__file__).parent / "assets" / "favicon_32.png"
 try:
@@ -274,7 +274,7 @@ st.markdown(f"""
     </svg>
     <div class="hero-eyebrow">Bio-Inspired Urban Network Optimization</div>
     <div class="hero-title">Physarum Network Intelligence</div>
-    <div class="hero-location">GULSHAN-E-IQBAL &nbsp;·&nbsp; DISTRICT EAST, KARACHI &nbsp;·&nbsp; YIC-26 SINDH HEC</div>
+    <div class="hero-location">ROAD-NETWORK ANALYSIS &nbsp;·&nbsp; TRAFFIC-FLOW OPTIMIZATION</div>
     <div class="hero-byline">🧬 Developed by <b>{AUTHOR_NAME}</b></div>
 </div>
 """, unsafe_allow_html=True)
@@ -286,16 +286,25 @@ with st.sidebar:
 
     st.header("Data")
     uploaded = st.file_uploader(
-        "Upload edges CSV (from auto_discover_corridors.py, with congestion values filled in)",
+        "Road edges CSV",
         type="csv",
     )
     demand_uploaded = st.file_uploader(
-        "Optional: upload node demand CSV (from compute_node_demand.py --full). "
-        "Required if your edges use auto-discovered N<id> node names -- the built-in "
-        "8-landmark demand values won't match those.",
+        "Node demand CSV. Required for a new area; match node IDs in the edges file. "
+        "The sample demand values are only for the sample network. "
+        "Upload the node demand file generated for this area.",
         type="csv",
         key="demand_csv",
     )
+    with st.expander("Get edge and demand files for a new area"):
+        st.markdown("Use free OpenStreetMap data. In Google Colab, run the repository scripts to create `full_network_edges.csv`, `full_network_nodes.csv`, and `node_demand.csv`.")
+        st.code(
+            "pip install osmnx pandas\\n"
+            "python auto_discover_corridors.py --lat 24.86 --lon 67.01 --radius-m 2500\\n"
+            "python compute_node_demand.py --full full_network_nodes.csv --lat 24.86 --lon 67.01 --radius-m 2500",
+            language="bash",
+        )
+        st.caption("Replace the example coordinates and radius. Node demand is an OpenStreetMap point-of-interest activity proxy, not observed trips. Congestion defaults to a placeholder unless you supply observations.")
     use_sample = st.checkbox("Use illustrative sample dataset instead", value=uploaded is None)
 
     st.header("Model parameters")
@@ -367,13 +376,10 @@ if uploaded is not None and not use_sample:
     if edges_df["congestion"].nunique(dropna=True) == 1:
         congestion_value = float(edges_df["congestion"].iloc[0])
         if congestion_value == 5:
-            st.warning(
-                "All uploaded corridors have congestion=5. The repository's network "
-                "extraction workflow assigns 5 as a placeholder; this is not an observed "
-                "traffic measurement. These results cannot distinguish congestion between "
-                "corridors. Replace the values with sourced, dated observations before using "
-                "the scores as congestion analysis. With this input, scores are driven by "
-                "network structure, the demand proxy, distance, and road class."
+            st.caption(
+                "All roads have the same placeholder congestion value, so this input does not distinguish "
+                "traffic between roads. Scores are driven by network structure, demand proxy, "
+                "distance, and road class."
             )
         else:
             st.info(
@@ -388,8 +394,8 @@ else:
     invalid_coordinate_count = 0
     has_coords = False
     st.info(
-        "Using the illustrative 6-corridor sample dataset. Upload an edges CSV "
-        "from auto_discover_corridors.py to analyze a real network."
+        "Illustrative sample loaded. Upload road edges and matching node demand files "
+        "to analyze a real area."
     )
 
 node_demands = DEFAULT_DEMANDS
@@ -1197,6 +1203,6 @@ with tab_notes:
 st.markdown(f"""
 <div class="footer-credit">
     <div class="name">{AUTHOR_NAME}</div>
-    <div class="sub">Physarum Network Intelligence &nbsp;·&nbsp; YIC-26 Sindh HEC Youth Innovation Fellowship</div>
+    <div class="sub">Physarum-inspired road-network analysis</div>
 </div>
 """, unsafe_allow_html=True)
