@@ -472,7 +472,9 @@ if "two_way" in edges_df.columns:
 # ---------------------------------------------------------------------------
 top_priority = result.iloc[0]
 total_nodes = len(set(edges_df["u"]).union(set(edges_df["v"])))
-top5_cost = ranked_value.sort_values("bio_efficiency").head(5)["estimated_cost_pkr_m"].sum()
+top5_cost = ranked_value[ranked_value["bio_efficiency"].notna()].sort_values(
+    "bio_efficiency"
+).head(5)["estimated_cost_pkr_m"].sum()
 
 k1, k2, k3, k4 = st.columns(4)
 with k1:
