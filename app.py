@@ -339,9 +339,24 @@ SAMPLE_EDGES = pd.DataFrame([
     ["E14", "Maskan", "KU Gate", 2.6, "Main Artery", 9],
 ], columns=["edge_id", "u", "v", "distance_km", "road_class", "congestion"])
 
+COORDINATE_COLUMNS = ["u_lat", "u_lon", "v_lat", "v_lon"]
+
 if uploaded is not None and not use_sample:
     edges_df = pd.read_csv(uploaded)
-    has_coords = {"u_lat", "u_lon", "v_lat", "v_lon"}.issubset(edges_df.columns)
+    missing_coordinate_columns = [c for c in COORDINATE_COLUMNS if c not in edges_df.columns]
+    valid_coordinate_rows = pd.Series(False, index=edges_df.index)
+    if not missing_coordinate_columns:
+        for column in COORDINATE_COLUMNS:
+            edges_df[column] = pd.to_numeric(edges_df[column], errors="coerce")
+        valid_coordinate_rows = (
+            edges_df["u_lat"].between(-90, 90)
+            & edges_df["v_lat"].between(-90, 90)
+            & edges_df["u_lon"].between(-180, 180)
+            & edges_df["v_lon"].between(-180, 180)
+        ).fillna(False)
+    valid_coordinate_count = int(valid_coordinate_rows.sum())
+    invalid_coordinate_count = len(edges_df) - valid_coordinate_count if not missing_coordinate_columns else 0
+    has_coords = valid_coordinate_count > 0
     if edges_df["congestion"].isnull().any():
         st.error(
             "Some rows have no congestion value. Fill in the congestion column "
@@ -351,6 +366,10 @@ if uploaded is not None and not use_sample:
         st.stop()
 else:
     edges_df = SAMPLE_EDGES
+    missing_coordinate_columns = COORDINATE_COLUMNS.copy()
+    valid_coordinate_rows = pd.Series(False, index=edges_df.index)
+    valid_coordinate_count = 0
+    invalid_coordinate_count = 0
     has_coords = False
     st.info(
         "Using the illustrative 6-corridor sample dataset. Upload an edges CSV "
@@ -407,8 +426,17 @@ def build_main_map(result, edges_df, highlighted):
     consistent line, styled by its weakest segment (a road is only as
     strong as its weakest link).
     """
-    center_lat = edges_df[["u_lat", "v_lat"]].values.mean()
-    center_lon = edges_df[["u_lon", "v_lon"]].values.mean()
+    coordinate_values = edges_df[COORDINATE_COLUMNS].apply(pd.to_numeric, errors="coerce")
+    valid_edges = coordinate_values[
+        coordinate_values["u_lat"].between(-90, 90)
+        & coordinate_values["v_lat"].between(-90, 90)
+        & coordinate_values["u_lon"].between(-180, 180)
+        & coordinate_values["v_lon"].between(-180, 180)
+    ].dropna()
+    if valid_edges.empty:
+        raise ValueError("No valid latitude/longitude pairs are available to draw.")
+    center_lat = valid_edges[["u_lat", "v_lat"]].values.mean()
+    center_lon = valid_edges[["u_lon", "v_lon"]].values.mean()
     m = folium.Map(location=[center_lat, center_lon], zoom_start=13, tiles=None)
     folium.TileLayer(
         tiles="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
@@ -445,6 +473,10 @@ def build_main_map(result, edges_df, highlighted):
         if src_match.empty:
             continue  # skip rather than crash the whole map over one bad row
         src = src_match.iloc[0]
+        edge_coords = pd.to_numeric(pd.Series([src.u_lat, src.u_lon, src.v_lat, src.v_lon]), errors="coerce")
+        if edge_coords.isna().any() or not (-90 <= edge_coords.iloc[0] <= 90 and -180 <= edge_coords.iloc[1] <= 180
+                                             and -90 <= edge_coords.iloc[2] <= 90 and -180 <= edge_coords.iloc[3] <= 180):
+            continue
         if pd.isna(row.bio_efficiency):
             color, weight = "#77746D", 2
         elif row.edge_id in road_style:
@@ -862,19 +894,36 @@ with tab_cost:
     )
 
 with tab_map:
-    st.markdown('<div class="section-tag">Corridor network</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-tag">Spatial network view</div>', unsafe_allow_html=True)
     if has_coords:
+        st.caption(f"Showing {valid_coordinate_count:,} corridor(s) with valid geographic coordinates.")
+        if invalid_coordinate_count:
+            st.warning(f"{invalid_coordinate_count:,} corridor(s) have missing or out-of-range coordinates and are omitted from the map.")
         highlighted = st.session_state.get("highlighted_edge")
         if highlighted:
             st.caption(f"Highlighting **{highlighted}** -- click a different row on the Conductance Ranking tab to change this, or clear the selection there to unhighlight.")
 
         m = build_main_map(result, edges_df, highlighted)
 
-        st_folium(m, width=None, height=480, key="main_network_map", returned_objects=[])
+        st_folium(m, width=None, height=520, key="main_network_map", returned_objects=[])
     else:
-        st.warning(
-            "No coordinates in the current dataset, so no map -- this appears "
-            "once you upload a CSV from auto_discover_corridors.py."
+        if uploaded is None or use_sample:
+            title = "Your sample network is schematic"
+            copy = "The built-in example contains corridor relationships and model inputs, but no real intersection locations. Upload a geocoded edge file to place the network on a map."
+        elif missing_coordinate_columns:
+            title = "Location fields are missing"
+            copy = "The edge file loaded, but it does not include all four endpoint coordinates needed to draw corridors."
+        else:
+            title = "No usable locations found"
+            copy = "Coordinate columns were found, but every corridor has missing or out-of-range latitude/longitude values. Check the values and coordinate reference system."
+        fields = ", ".join(missing_coordinate_columns) if missing_coordinate_columns else ", ".join(COORDINATE_COLUMNS)
+        st.markdown(
+            f'<div class="map-empty"><div class="map-empty-icon">⌖</div>'
+            f'<div class="map-empty-title">{title}</div>'
+            f'<div class="map-empty-copy">{copy} Upload an edge CSV generated by '
+            f'<code>auto_discover_corridors.py</code> with coordinates in decimal degrees.</div>'
+            f'<div class="map-empty-fields">Required fields: <code>{fields}</code></div></div>',
+            unsafe_allow_html=True,
         )
 
 with tab_resilience:
