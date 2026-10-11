@@ -1056,9 +1056,9 @@ with tab_notes:
         """
 - **Impedance** combines distance, congestion, and road class into a single
   friction score per corridor.
-- **Bio-efficiency** is the edge conductance after the configured number of
-  iterations. The app does not check convergence; it is an internal model
-  score, not measured road capacity or traffic flow.
+- **Bio-efficiency** is the edge conductance after the solver's numerical
+  stopping check or iteration cap. This checks stability within the selected
+  model; it does not measure road capacity or traffic flow.
 - The network-coupled solver uses one assumed sink (the highest POI-demand
   node), injects proxy demand at other nodes, and treats links as undirected.
   It is not an origin-destination traffic assignment.
