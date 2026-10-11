@@ -4,32 +4,26 @@ Research prototype for exploring road-network structure and hypothetical
 corridor scenarios in Gulshan-e-Iqbal, Karachi. It is a decision-support
 experiment, not a validated traffic forecast or engineering recommendation.
 
-## Current workflow
+## Prepare inputs for a study area
 
-1. In Google Colab, install the OSM extraction dependency and run
-   `auto_discover_corridors.py`:
-   ```bash
-   pip install osmnx pandas
-   python auto_discover_corridors.py
-   ```
-   This writes `full_network_edges.csv` and `full_network_nodes.csv`.
-2. Estimate a destination-activity proxy around nodes:
-   ```bash
-   python compute_node_demand.py --full full_network_nodes.csv
-   ```
-   This writes `node_demand.csv`. POI density is not observed trip demand.
-3. Fill or replace the default congestion values with a sourced, dated
-   dataset. The script sets them to 5 as placeholders.
-4. Install app dependencies and run:
-   ```bash
-   pip install -r requirements.txt
-   streamlit run app.py
-   ```
-5. Upload the edge CSV and matching node-demand CSV in the dashboard.
+Each real-area analysis uses two matching files:
 
-The repository currently documents the auto-discovery workflow. The older
-`extract_gulshan_network.py` landmark workflow referenced in earlier
-versions is not present on the default branch.
+1. `full_network_edges.csv`: one row per road segment, including node IDs, endpoint coordinates, distance, road class, and the `congestion` field.
+2. `node_demand.csv`: one row per edge-network node, with the same node IDs and a demand value.
+
+### Generate the files from OpenStreetMap
+
+Open the repository in Google Colab (or another Python environment with internet access), install the dependencies, then choose the study-area center and radius:
+
+```bash
+pip install osmnx pandas
+python auto_discover_corridors.py --lat 24.86 --lon 67.01 --radius-m 2500
+python compute_node_demand.py --full full_network_nodes.csv --lat 24.86 --lon 67.01 --radius-m 2500
+```
+
+Replace the example latitude, longitude, and radius with the new area. The extraction script writes `full_network_edges.csv` and `full_network_nodes.csv`; the demand script uses the nodes file and writes `node_demand.csv`. Upload the edges and demand CSVs in the dashboard.
+
+OpenStreetMap supplies road geometry and mapped points of interest; it does not provide observed trips or live traffic speeds. The generated node demand is a destination-activity proxy. The edges script sets congestion to a uniform placeholder, so replace it with sourced observations if congestion differences matter. OpenStreetMap coverage varies by place and network type.
 
 ## What the models calculate
 
@@ -80,7 +74,7 @@ from biological measurements or Karachi traffic data.
 - POI density is a destination-activity proxy. It does not estimate where
   trips start, the number of trips, mode choice, or an origin-destination
   matrix.
-- Congestion values are placeholders until replaced by observations. Keep
+- Congestion defaults are placeholders until replaced by observations. Keep
   source, timestamp, and collection method with any supplied values.
 - OpenStreetMap completeness varies by place. Review extracted geometry,
   road classes, direction, names, and missing links before analysis.
