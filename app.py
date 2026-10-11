@@ -236,22 +236,21 @@ with st.sidebar:
         type="csv",
         key="demand_csv",
     )
-    use_sample = st.checkbox("Use validated sample dataset instead", value=uploaded is None)
+    use_sample = st.checkbox("Use illustrative sample dataset instead", value=uploaded is None)
 
     st.header("Model parameters")
     sim_mode = st.radio(
         "Simulation mode",
         ["Network-Coupled (recommended)", "Independent (legacy)"],
-        help="Network-Coupled solves real Kirchhoff-style flow competition between corridors "
-             "sharing a node -- a corridor's score genuinely depends on its neighbors, matching "
-             "the actual Tero et al. mechanism. Independent evolves each corridor separately with "
-             "no interaction; kept for comparison and as a faster fallback on very large networks.",
+        help="Network-Coupled solves an undirected Kirchhoff flow problem for a single-sink "
+             "scenario. It is Physarum-inspired, not calibrated traffic assignment; one-way "
+             "restrictions are not enforced. Independent scores edges without network flow.",
     )
     decay_rate = st.slider("Decay rate", 0.05, 0.30, 0.15, 0.01)
     mu = st.slider(
         "Reinforcement sharpness (mu)", 0.5, 3.0, 1.0, 0.1,
-        help="Controls the saturating reinforcement function f(Q) = Q^mu / (1 + Q^mu), "
-             "from Tero et al. 2010 (Science). Higher mu = more winner-take-all behavior.",
+        help="Exponent in the normalized saturating response f(|Q|)=|Q|^mu/(1+|Q|^mu). "
+             "Higher values sharpen reinforcement. It is not calibrated to Karachi traffic.",
     )
     generations = st.slider("Generations", 10, 60, 30, 5)
 
@@ -294,8 +293,8 @@ else:
     edges_df = SAMPLE_EDGES
     has_coords = False
     st.info(
-        "Using the validated 6-corridor sample dataset. Upload a real edges CSV "
-        "in the sidebar once you've run extract_gulshan_network.py in Colab."
+        "Using the illustrative 6-corridor sample dataset. Upload an edges CSV "
+        "from auto_discover_corridors.py to analyze a real network."
     )
 
 node_demands = DEFAULT_DEMANDS
@@ -432,6 +431,21 @@ if result.empty:
 ranked_value = cached_cost_benefit(result, node_demands, cost_per_km)
 has_road_name = "road_name" in edges_df.columns
 
+if sim_mode == "Network-Coupled (recommended)":
+    sink_assumption = cached_sink_node(edges_df, node_demands)
+    st.info(
+        f"Scenario assumption: **{sink_assumption}** is the single sink; all other nodes inject "
+        "flow in proportion to their POI-demand proxy. This is not an OD matrix or observed trip pattern."
+    )
+if "two_way" in edges_df.columns:
+    one_way_flags = edges_df["two_way"].astype(str).str.strip().str.lower().isin(["false", "0", "no"])
+    if one_way_flags.any():
+        st.warning(
+            "This dataset contains one-way corridors. The Physarum adaptation model treats the "
+            "network as undirected; direction restrictions affect alternate-route search only, "
+            "not adaptation scores."
+        )
+
 # ---------------------------------------------------------------------------
 # KPI row
 # ---------------------------------------------------------------------------
@@ -445,7 +459,7 @@ with k1:
     <div class="kpi-value">{len(edges_df)}</div>
     <div class="kpi-sub">{total_nodes} intersections</div></div>""", unsafe_allow_html=True)
 with k2:
-    st.markdown(f"""<div class="kpi-card"><div class="kpi-label"><span class="pulse-dot"></span>Top Priority Corridor</div>
+    st.markdown(f"""<div class="kpi-card"><div class="kpi-label"><span class="pulse-dot"></span>Lowest Model Score</div>
     <div class="kpi-value" style="font-size:1.15rem;">{top_priority['u']} → {top_priority['v']}</div>
     <div class="kpi-sub">bio-efficiency {top_priority['bio_efficiency']:.2f}</div></div>""", unsafe_allow_html=True)
 with k3:
@@ -453,7 +467,7 @@ with k3:
     <div class="kpi-value">{result['bio_efficiency'].mean():.2f}</div>
     <div class="kpi-sub">across all corridors</div></div>""", unsafe_allow_html=True)
 with k4:
-    st.markdown(f"""<div class="kpi-card"><div class="kpi-label">Est. Top-5 Priority Investment</div>
+    st.markdown(f"""<div class="kpi-card"><div class="kpi-label">Est. Cost: 5 Lowest-Score Edges</div>
     <div class="kpi-value">Rs {top5_cost:,.0f}M</div>
     <div class="kpi-sub">placeholder cost model</div></div>""", unsafe_allow_html=True)
 
@@ -506,9 +520,10 @@ tab_priority, tab_cost, tab_map, tab_resilience, tab_baseline, tab_notes = st.ta
 )
 
 with tab_priority:
-    st.markdown('<div class="section-tag">Weakest corridors first</div>', unsafe_allow_html=True)
-    st.caption("Lowest bio-efficiency = weakest link the network cannot reinforce = top priority for widening. "
-               "Click a row to highlight that corridor on the Map tab.")
+    st.markdown('<div class="section-tag">Lowest conductance scores</div>', unsafe_allow_html=True)
+    st.caption("These edges received the lowest final conductance scores under the selected inputs. "
+               "This is a structural model signal, not evidence of congestion or a widening recommendation. "
+               "Click a row to highlight it on the Map tab.")
     display_cols = ["edge_id"]
     if "road_name" in result.columns:
         display_cols.append("road_name")
@@ -614,11 +629,9 @@ with tab_cost:
     top_value = ranked_value.iloc[0]
     top_label = top_value.get("road_name", f"{top_value['u']} to {top_value['v']}") if has_road_name else f"{top_value['u']} to {top_value['v']}"
     st.markdown(
-        f"**In plain terms:** of all the corridors we analyzed, **{top_label}** gives you the most "
-        f"traffic relief for the money -- an estimated **Rs {top_value['estimated_cost_pkr_m']:,.0f} million** "
-        f"to fix, for the biggest improvement per rupee spent. That's not necessarily the single most "
-        f"broken road (see the Priority Ranking tab for that) -- it's the smartest one to fix *first* "
-        f"if your budget is limited."
+        f"Under the current demand proxy, model scores, and editable cost assumptions, **{top_label}** "
+        f"has the highest heuristic value ratio. Its estimated cost is **Rs {top_value['estimated_cost_pkr_m']:,.0f} million**. "
+        "This ratio is not a forecast of traffic relief, travel-time savings, or return on investment."
     )
 
     simple_display = ranked_value[["edge_id", "u", "v", "estimated_cost_pkr_m", "value_ratio"]].reset_index(drop=True)
@@ -628,7 +641,7 @@ with tab_cost:
         simple_display.style.background_gradient(subset=["Value Score"], cmap=WARM_CMAP),
         width="stretch",
     )
-    st.caption("Higher Value Score = more traffic relief per rupee spent. Ranked best investment first.")
+    st.caption("Higher Value Score = higher demand-to-score proxy per estimated cost. It is a screening heuristic, not a benefit estimate.")
 
     with st.expander("Show full technical table (bio-efficiency, demand pressure, etc.)"):
         value_display = ranked_value[["edge_id", "u", "v", "bio_efficiency",
@@ -637,9 +650,8 @@ with tab_cost:
         value_display.columns = ["Edge", "From", "To", "Bio-Efficiency",
                                   "Est. Cost (PKR M)", "Demand Pressure", "Value Ratio"]
         st.caption(
-            "Demand Pressure = how much unmet traffic demand is being throttled by this corridor's "
-            "weakness. Value Ratio = Demand Pressure divided by cost -- the raw number behind the "
-            "Value Score above."
+            "Demand Pressure = average endpoint POI-demand proxy divided by model conductance. "
+            "Value Ratio = this proxy divided by estimated cost. Neither measures unmet trips or benefits."
         )
         styled_value = value_display.style.background_gradient(subset=["Value Ratio"], cmap=WARM_CMAP)
         st.dataframe(styled_value, width="stretch")
@@ -694,15 +706,14 @@ with tab_cost:
                 f"flood-resilience cost."
             )
 
-    st.markdown('<div class="section-tag">Simulation-verified ranking</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-tag">Model-score scenario sensitivity</div>', unsafe_allow_html=True)
     st.caption(
-        "The table above uses a fast static formula, which can misrank corridors. "
-        "This instead actually simulates widening each top candidate and re-runs the "
-        "network to measure the REAL resulting efficiency gain -- slower, but the "
-        "number you can defend if asked 'how do you know'."
+        "This applies hypothetical road-class and congestion changes to each candidate and reruns "
+        "the model. It reports internal conductance-score changes only; it does not predict "
+        "real traffic relief, travel times, or economic return.""
     )
-    verify_n = st.slider("Verify top N candidates", 5, 30, 15, 5)
-    if st.button("🔬 Run simulation verification"):
+    verify_n = st.slider("Analyze top N heuristic candidates", 5, 30, 15, 5)
+    if st.button("🔬 Run model-score scenarios"):
         if sim_mode == "Network-Coupled (recommended)":
             def _sim_fn(e, d, dr, m, g):
                 r, _ = run_network_simulation(e, d, dr, m, g)
@@ -710,7 +721,7 @@ with tab_cost:
         else:
             _sim_fn = run_simulation
 
-        with st.spinner(f"Simulating widening for top {verify_n} candidates..."):
+        with st.spinner(f"Running model-score scenarios for {verify_n} candidates..."):
             verified = verify_top_candidates(
                 edges_df, node_demands, ranked_value, decay_rate, mu, generations,
                 cost_per_km, top_n=verify_n, simulation_fn=_sim_fn,
@@ -731,7 +742,7 @@ with tab_cost:
             st.warning(
                 f"Note: the simulation-verified top pick ({verified.iloc[0]['edge_id']}) "
                 f"differs from the static heuristic's top pick ({ranked_value.iloc[0]['edge_id']}). "
-                f"Use the simulated result for your actual recommendation."
+                f"Treat this as model-score sensitivity only; validate recommendations against observed traffic and travel-time data."
             )
 
     st.markdown('<div class="section-tag">Malyx vs. a conventional consultancy</div>', unsafe_allow_html=True)
@@ -987,7 +998,7 @@ with tab_baseline:
     elif corr is not None:
         st.success(
             f"Correlation is {corr:.3f} -- the two methods meaningfully disagree on ranking. "
-            f"This is the genuine effect of network flow coupling. "
+            f"This difference is caused by the selected network-coupled model assumptions. "
             f"Worth investigating the specific corridors below where they diverge most."
         )
 
@@ -1018,13 +1029,14 @@ with tab_notes:
         """
 - **Impedance** combines distance, congestion, and road class into a single
   friction score per corridor.
-- **Bio-efficiency** is the converged conductance value after simulated
-  Physarum-style adaptation: corridors the network can sustain flow through
-  strengthen, corridors it can't (regardless of demand) weaken toward zero.
-- The adaptation rule uses the saturating reinforcement function from
-  Tero et al. 2010 (*Science*) -- the same mechanism used to replicate the
-  Tokyo rail network with real slime mold -- rather than an invented
-  damping term.
+- **Bio-efficiency** is the edge conductance after the configured number of
+  iterations. The app does not check convergence; it is an internal model
+  score, not measured road capacity or traffic flow.
+- The network-coupled solver uses one assumed sink (the highest POI-demand
+  node), injects proxy demand at other nodes, and treats links as undirected.
+  It is not an origin-destination traffic assignment.
+- The saturating response is related to forms studied in Physarum research
+  (Tero et al., 2008). Its parameters are not calibrated to local traffic data.
 - Cost estimates are grounded in published Pakistani road-cost references
   (NHA, Lahore carriageway projects), not a site-specific quote.
 """
