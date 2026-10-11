@@ -17,11 +17,15 @@ Open the repository in Google Colab (or another Python environment with internet
 
 ```bash
 pip install osmnx pandas
+# Option A: enter an area name (include city/country to disambiguate)
+python auto_discover_corridors.py --place "Gulshan-e-Iqbal, Karachi, Pakistan" --radius-m 2500
+python compute_node_demand.py --full full_network_nodes.csv --place "Gulshan-e-Iqbal, Karachi, Pakistan" --radius-m 2500
+# Option B: use exact coordinates instead
 python auto_discover_corridors.py --lat 24.86 --lon 67.01 --radius-m 2500
 python compute_node_demand.py --full full_network_nodes.csv --lat 24.86 --lon 67.01 --radius-m 2500
 ```
 
-Replace the example latitude, longitude, and radius with the new area. The extraction script writes `full_network_edges.csv` and `full_network_nodes.csv`; the demand script uses the nodes file and writes `node_demand.csv`. Upload the edges and demand CSVs in the dashboard.
+For either option, keep the radius consistent in both commands. The area-name option geocodes the name to a center point and uses the radius around it; the coordinate option gives you direct control over the center. The extraction script writes `full_network_edges.csv` and `full_network_nodes.csv`; the demand script uses the nodes file and writes `node_demand.csv`. Upload the edges and demand CSVs in the dashboard.
 
 OpenStreetMap supplies road geometry and mapped points of interest; it does not provide observed trips or live traffic speeds. The generated node demand is a destination-activity proxy. The edges script sets congestion to a uniform placeholder, so replace it with sourced observations if congestion differences matter. OpenStreetMap coverage varies by place and network type.
 
