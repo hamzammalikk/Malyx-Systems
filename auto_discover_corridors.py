@@ -176,15 +176,28 @@ def build_nodes_csv(G, out_path="full_network_nodes.csv"):
 if __name__ == "__main__":
     import argparse
 
-    parser = argparse.ArgumentParser(description="Download an OSM road network around a chosen center.")
-    parser.add_argument("--lat", type=float, default=CENTER_POINT[0], help="Study-area center latitude.")
-    parser.add_argument("--lon", type=float, default=CENTER_POINT[1], help="Study-area center longitude.")
+    parser = argparse.ArgumentParser(description="Download an OSM road network around a named area or coordinate.")
+    parser.add_argument("--place", help="Place name/address to geocode, e.g. Gulshan-e-Iqbal, Karachi, Pakistan.")
+    parser.add_argument("--lat", type=float, help="Study-area center latitude.")
+    parser.add_argument("--lon", type=float, help="Study-area center longitude.")
     parser.add_argument("--radius-m", type=int, default=RADIUS_M, help="Study-area radius in meters.")
     parser.add_argument("--edges-out", default="full_network_edges.csv")
     parser.add_argument("--nodes-out", default="full_network_nodes.csv")
     args = parser.parse_args()
 
-    center = (args.lat, args.lon)
+    if args.place and (args.lat is not None or args.lon is not None):
+        parser.error("use --place or --lat/--lon, not both")
+    if (args.lat is None) != (args.lon is None):
+        parser.error("--lat and --lon must be supplied together")
+    if args.place:
+        center = ox.geocode(args.place)
+        print(f"Geocoded {args.place!r} to center {center}; using a {args.radius_m}m radius.")
+    elif args.lat is not None:
+        center = (args.lat, args.lon)
+    else:
+        center = CENTER_POINT
+    if args.radius_m <= 0:
+        parser.error("--radius-m must be positive")
     G = discover_network(center_point=center, radius_m=args.radius_m)
     build_edges_csv(G, args.edges_out)
     build_nodes_csv(G, args.nodes_out)
