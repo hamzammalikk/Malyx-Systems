@@ -43,143 +43,203 @@ st.set_page_config(
 # ---------------------------------------------------------------------------
 st.markdown("""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap');
 
 :root {
-    --bg-deep: #1B1815;
-    --bg-panel: #221D18;
-    --bg-panel-light: #2B241D;
-    --accent-moss: #C9BFAE;
-    --accent-moss-bright: #E8DFCE;
-    --accent-ochre: #D8C9A8;
-    --accent-rust: #9C4A2E;
-    --text-cream: #F2ECDD;
-    --text-muted: #A79C8C;
-    --border-subtle: #3A342C;
+  color-scheme: dark;
+  --canvas: #0A1110;
+  --surface: #101B19;
+  --surface-raised: #14221F;
+  --surface-soft: #192925;
+  --mint: #72E0B1;
+  --mint-bright: #A5F2D1;
+  --sand: #DFC99A;
+  --coral: #D98268;
+  --ink: #F1F6F3;
+  --muted: #9AAEA6;
+  --line: rgba(183, 224, 207, .14);
 }
 
-html, body, [class*="css"] { font-family: 'IBM Plex Sans', sans-serif; }
+html, body, [class*="css"] { font-family: "DM Sans", sans-serif; }
+[data-testid="stAppViewContainer"] {
+  background:
+    radial-gradient(ellipse at 86% 0%, rgba(64, 143, 112, .12), transparent 34rem),
+    radial-gradient(ellipse at 4% 28%, rgba(48, 89, 78, .12), transparent 30rem),
+    var(--canvas);
+  color: var(--ink);
+}
+[data-testid="stHeader"] { background: rgba(10, 17, 16, .72); }
+[data-testid="stSidebar"] {
+  background: linear-gradient(180deg, #101B19, #0D1715 70%, #0A1110);
+  border-right: 1px solid var(--line);
+}
+[data-testid="stSidebar"] > div:first-child { padding-top: 1.1rem; }
+.main .block-container {
+  max-width: 1480px;
+  padding: 1.6rem clamp(1rem, 3vw, 2.6rem) 3rem;
+}
 
 .hero-banner {
-    background: linear-gradient(120deg, #1B1815 0%, #2B241D 55%, #3A3126 100%);
-    border: 1px solid var(--border-subtle);
-    border-radius: 14px;
-    padding: 2.2rem 2.4rem;
-    margin-bottom: 1.6rem;
-    position: relative;
-    overflow: hidden;
+  background:
+    radial-gradient(circle at 88% 20%, rgba(114, 224, 177, .13), transparent 15rem),
+    linear-gradient(125deg, rgba(20, 34, 31, .98), rgba(12, 22, 20, .98));
+  border: 1px solid rgba(114, 224, 177, .2);
+  border-radius: 22px;
+  padding: clamp(1.6rem, 3.2vw, 3rem);
+  margin: .3rem 0 1.35rem;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 22px 70px rgba(0, 0, 0, .22), inset 0 1px rgba(255,255,255,.025);
+}
+.hero-banner::after {
+  content: "";
+  position: absolute;
+  inset: auto -8% -110% 45%;
+  height: 18rem;
+  border: 1px solid rgba(114,224,177,.12);
+  border-radius: 50%;
+  box-shadow: 0 0 0 28px rgba(114,224,177,.025), 0 0 0 58px rgba(114,224,177,.02);
+  pointer-events: none;
 }
 .hero-eyebrow {
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 0.72rem;
-    letter-spacing: 0.16em;
-    text-transform: uppercase;
-    color: var(--accent-moss-bright);
-    margin-bottom: 0.6rem;
+  font: 600 .68rem "IBM Plex Mono", monospace;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: var(--mint);
+  margin-bottom: .65rem;
 }
 .hero-title {
-    font-family: 'Fraunces', serif;
-    font-weight: 600;
-    font-size: 2.3rem;
-    color: var(--text-cream);
-    margin: 0 0 0.3rem 0;
-    line-height: 1.15;
+  font: 600 clamp(2rem, 4vw, 3.15rem)/1.08 "Space Grotesk", sans-serif;
+  letter-spacing: -.045em;
+  color: var(--ink);
+  margin: 0 0 .55rem;
 }
 .hero-location {
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 0.82rem;
-    color: var(--text-muted);
-    margin-bottom: 1.1rem;
+  font: 500 .72rem "IBM Plex Mono", monospace;
+  letter-spacing: .07em;
+  color: var(--muted);
+  margin-bottom: 1.1rem;
 }
 .hero-byline {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    background: rgba(201,191,174,0.12);
-    border: 1px solid var(--accent-moss);
-    border-radius: 999px;
-    padding: 0.4rem 0.9rem;
-    font-size: 0.85rem;
-    color: var(--text-cream);
+  display: inline-flex;
+  align-items: center;
+  gap: .45rem;
+  background: rgba(114, 224, 177, .07);
+  border: 1px solid rgba(114, 224, 177, .2);
+  border-radius: 999px;
+  padding: .42rem .78rem;
+  font-size: .8rem;
+  color: var(--ink);
 }
-.hero-byline b { color: var(--accent-moss-bright); font-weight: 600; }
-
-.hero-logo {
-    position: absolute;
-    top: 1.6rem;
-    right: 2rem;
-    width: 68px;
-    height: 68px;
-    opacity: 0.95;
-}
+.hero-byline b { color: var(--mint-bright); font-weight: 600; }
+.hero-logo { position: absolute; top: 1.7rem; right: 2rem; width: 76px; height: 76px; opacity: .72; }
 
 .kpi-card {
-    background: var(--bg-panel);
-    border: 1px solid var(--border-subtle);
-    border-radius: 12px;
-    padding: 1rem 1.2rem;
-    transition: transform 0.18s ease, border-color 0.18s ease;
-    height: 100%;
+  background: linear-gradient(150deg, rgba(23, 39, 35, .97), rgba(15, 26, 24, .98));
+  border: 1px solid var(--line);
+  border-radius: 17px;
+  padding: 1rem 1.15rem;
+  box-shadow: 0 10px 28px rgba(0,0,0,.14), inset 0 1px rgba(255,255,255,.025);
+  height: 100%;
+  transition: border-color .18s ease, transform .18s ease, box-shadow .18s ease;
 }
-.kpi-card:hover {
-    transform: translateY(-3px);
-    border-color: var(--accent-moss);
-}
-.kpi-label {
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 0.68rem;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--text-muted);
-    margin-bottom: 0.4rem;
-}
-.kpi-value {
-    font-family: 'Fraunces', serif;
-    font-size: 1.5rem;
-    font-weight: 600;
-    color: var(--text-cream);
-}
-.kpi-sub { font-size: 0.78rem; color: var(--text-muted); margin-top: 0.2rem; }
-
-.pulse-dot {
-    display: inline-block;
-    width: 9px; height: 9px;
-    border-radius: 50%;
-    background: var(--accent-ochre);
-    margin-right: 6px;
-    box-shadow: 0 0 0 0 rgba(216,201,168,0.7);
-    animation: pulse 1.8s infinite;
-}
-@keyframes pulse {
-    0%   { box-shadow: 0 0 0 0 rgba(216,201,168,0.55); }
-    70%  { box-shadow: 0 0 0 9px rgba(216,201,168,0); }
-    100% { box-shadow: 0 0 0 0 rgba(216,201,168,0); }
-}
-
+.kpi-card:hover { transform: translateY(-2px); border-color: rgba(114,224,177,.36); box-shadow: 0 14px 34px rgba(0,0,0,.2); }
+.kpi-label { font: 600 .65rem "IBM Plex Mono", monospace; letter-spacing: .105em; text-transform: uppercase; color: var(--muted); margin-bottom: .52rem; }
+.kpi-value { font: 600 1.55rem/1.2 "Space Grotesk", sans-serif; letter-spacing: -.035em; color: var(--ink); }
+.kpi-sub { font-size: .76rem; color: var(--muted); margin-top: .35rem; }
 .section-tag {
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 0.7rem;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    color: var(--accent-moss-bright);
-    border-bottom: 1px solid var(--border-subtle);
-    padding-bottom: 0.4rem;
-    margin-bottom: 0.9rem;
+  font: 600 .68rem "IBM Plex Mono", monospace;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--mint-bright);
+  border-bottom: 1px solid var(--line);
+  padding-bottom: .62rem;
+  margin: .45rem 0 .8rem;
 }
-
 .footer-credit {
-    margin-top: 2.2rem;
-    padding: 1.3rem 1.6rem;
-    background: var(--bg-panel);
-    border: 1px solid var(--border-subtle);
-    border-radius: 12px;
-    text-align: center;
+  margin-top: 2rem;
+  padding: 1.1rem 1.4rem;
+  background: rgba(16,27,25,.8);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  text-align: center;
 }
-.footer-credit .name { font-family: 'Fraunces', serif; font-size: 1.1rem; color: var(--text-cream); }
-.footer-credit .sub { font-family: 'IBM Plex Mono', monospace; font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem; }
+.footer-credit .name { font: 600 1rem "Space Grotesk", sans-serif; color: var(--ink); }
+.footer-credit .sub { font: 500 .68rem "IBM Plex Mono", monospace; color: var(--muted); margin-top: .3rem; }
 
-div[data-testid="stMetricValue"] { font-family: 'Fraunces', serif; }
-.stTabs [data-baseweb="tab"] { font-family: 'IBM Plex Mono', monospace; font-size: 0.85rem; }
+[data-testid="stMetricValue"] { font-family: "Space Grotesk", sans-serif; letter-spacing: -.03em; }
+[data-testid="stTabs"] [role="tablist"] { gap: .32rem; border-bottom: 1px solid var(--line); }
+[data-testid="stTabs"] button[role="tab"] {
+  font: 500 .78rem "DM Sans", sans-serif;
+  color: var(--muted);
+  border-radius: 10px 10px 0 0;
+  padding: .6rem .75rem;
+  transition: color .16s ease, background .16s ease;
+}
+[data-testid="stTabs"] button[role="tab"]:hover { color: var(--ink); background: rgba(114,224,177,.05); }
+[data-testid="stTabs"] button[role="tab"][aria-selected="true"] {
+  color: var(--mint-bright);
+  background: rgba(114,224,177,.08);
+}
+[data-testid="stButton"] button, [data-testid="stDownloadButton"] button {
+  border: 1px solid rgba(114,224,177,.25);
+  border-radius: 11px;
+  font-weight: 600;
+  transition: border-color .16s ease, background .16s ease, transform .16s ease;
+}
+[data-testid="stButton"] button:hover, [data-testid="stDownloadButton"] button:hover {
+  border-color: rgba(114,224,177,.62);
+  transform: translateY(-1px);
+}
+[data-testid="stAlert"] { border-radius: 13px; border: 1px solid var(--line); }
+[data-testid="stDataFrame"], [data-testid="stTable"] { border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+[data-testid="stCustomComponentV1"] { border-radius: 16px; overflow: hidden; }
+[data-testid="stFileUploader"] section {
+  border: 1px dashed rgba(114,224,177,.34);
+  border-radius: 14px;
+  background: rgba(114,224,177,.025);
+}
+[data-testid="stSlider"] [role="slider"] { accent-color: var(--mint); }
+
+.map-empty {
+  display: grid;
+  grid-template-columns: 3.2rem 1fr;
+  gap: .25rem 1rem;
+  align-items: start;
+  padding: 1.3rem 1.4rem;
+  margin: .6rem 0;
+  border: 1px solid rgba(114,224,177,.2);
+  border-radius: 17px;
+  background:
+    radial-gradient(circle at 95% 0, rgba(114,224,177,.08), transparent 16rem),
+    linear-gradient(145deg, rgba(20,34,31,.96), rgba(13,23,21,.96));
+}
+.map-empty-icon {
+  width: 3rem; height: 3rem;
+  display: grid; place-items: center;
+  border: 1px solid rgba(114,224,177,.26);
+  border-radius: 14px;
+  background: rgba(114,224,177,.08);
+  color: var(--mint);
+  font: 600 1.4rem "Space Grotesk", sans-serif;
+  grid-row: span 2;
+}
+.map-empty-title { color: var(--ink); font: 600 1.05rem "Space Grotesk", sans-serif; }
+.map-empty-copy { color: var(--muted); font-size: .88rem; line-height: 1.55; }
+.map-empty-fields { grid-column: 2; margin-top: .35rem; color: var(--muted); font-size: .78rem; }
+.map-empty-fields code { color: var(--mint-bright); background: rgba(114,224,177,.08); border-radius: 6px; padding: .2rem .4rem; }
+
+@media (max-width: 720px) {
+  .main .block-container { padding: 1rem .8rem 2rem; }
+  .hero-banner { border-radius: 17px; padding: 1.45rem 1.2rem; }
+  .hero-logo { width: 48px; height: 48px; right: 1rem; top: 1rem; opacity: .55; }
+  .hero-location { font-size: .62rem; line-height: 1.6; max-width: 82%; }
+  .kpi-card { border-radius: 14px; }
+  [data-testid="stTabs"] button[role="tab"] { padding: .48rem .55rem; font-size: .72rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; }
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -279,9 +339,24 @@ SAMPLE_EDGES = pd.DataFrame([
     ["E14", "Maskan", "KU Gate", 2.6, "Main Artery", 9],
 ], columns=["edge_id", "u", "v", "distance_km", "road_class", "congestion"])
 
+COORDINATE_COLUMNS = ["u_lat", "u_lon", "v_lat", "v_lon"]
+
 if uploaded is not None and not use_sample:
     edges_df = pd.read_csv(uploaded)
-    has_coords = {"u_lat", "u_lon", "v_lat", "v_lon"}.issubset(edges_df.columns)
+    missing_coordinate_columns = [c for c in COORDINATE_COLUMNS if c not in edges_df.columns]
+    valid_coordinate_rows = pd.Series(False, index=edges_df.index)
+    if not missing_coordinate_columns:
+        for column in COORDINATE_COLUMNS:
+            edges_df[column] = pd.to_numeric(edges_df[column], errors="coerce")
+        valid_coordinate_rows = (
+            edges_df["u_lat"].between(-90, 90)
+            & edges_df["v_lat"].between(-90, 90)
+            & edges_df["u_lon"].between(-180, 180)
+            & edges_df["v_lon"].between(-180, 180)
+        ).fillna(False)
+    valid_coordinate_count = int(valid_coordinate_rows.sum())
+    invalid_coordinate_count = len(edges_df) - valid_coordinate_count if not missing_coordinate_columns else 0
+    has_coords = valid_coordinate_count > 0
     if edges_df["congestion"].isnull().any():
         st.error(
             "Some rows have no congestion value. Fill in the congestion column "
@@ -291,6 +366,10 @@ if uploaded is not None and not use_sample:
         st.stop()
 else:
     edges_df = SAMPLE_EDGES
+    missing_coordinate_columns = COORDINATE_COLUMNS.copy()
+    valid_coordinate_rows = pd.Series(False, index=edges_df.index)
+    valid_coordinate_count = 0
+    invalid_coordinate_count = 0
     has_coords = False
     st.info(
         "Using the illustrative 6-corridor sample dataset. Upload an edges CSV "
@@ -347,8 +426,17 @@ def build_main_map(result, edges_df, highlighted):
     consistent line, styled by its weakest segment (a road is only as
     strong as its weakest link).
     """
-    center_lat = edges_df[["u_lat", "v_lat"]].values.mean()
-    center_lon = edges_df[["u_lon", "v_lon"]].values.mean()
+    coordinate_values = edges_df[COORDINATE_COLUMNS].apply(pd.to_numeric, errors="coerce")
+    valid_edges = coordinate_values[
+        coordinate_values["u_lat"].between(-90, 90)
+        & coordinate_values["v_lat"].between(-90, 90)
+        & coordinate_values["u_lon"].between(-180, 180)
+        & coordinate_values["v_lon"].between(-180, 180)
+    ].dropna()
+    if valid_edges.empty:
+        raise ValueError("No valid latitude/longitude pairs are available to draw.")
+    center_lat = valid_edges[["u_lat", "v_lat"]].values.mean()
+    center_lon = valid_edges[["u_lon", "v_lon"]].values.mean()
     m = folium.Map(location=[center_lat, center_lon], zoom_start=13, tiles=None)
     folium.TileLayer(
         tiles="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
@@ -385,6 +473,10 @@ def build_main_map(result, edges_df, highlighted):
         if src_match.empty:
             continue  # skip rather than crash the whole map over one bad row
         src = src_match.iloc[0]
+        edge_coords = pd.to_numeric(pd.Series([src.u_lat, src.u_lon, src.v_lat, src.v_lon]), errors="coerce")
+        if edge_coords.isna().any() or not (-90 <= edge_coords.iloc[0] <= 90 and -180 <= edge_coords.iloc[1] <= 180
+                                             and -90 <= edge_coords.iloc[2] <= 90 and -180 <= edge_coords.iloc[3] <= 180):
+            continue
         if pd.isna(row.bio_efficiency):
             color, weight = "#77746D", 2
         elif row.edge_id in road_style:
@@ -802,19 +894,36 @@ with tab_cost:
     )
 
 with tab_map:
-    st.markdown('<div class="section-tag">Corridor network</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-tag">Spatial network view</div>', unsafe_allow_html=True)
     if has_coords:
+        st.caption(f"Showing {valid_coordinate_count:,} corridor(s) with valid geographic coordinates.")
+        if invalid_coordinate_count:
+            st.warning(f"{invalid_coordinate_count:,} corridor(s) have missing or out-of-range coordinates and are omitted from the map.")
         highlighted = st.session_state.get("highlighted_edge")
         if highlighted:
             st.caption(f"Highlighting **{highlighted}** -- click a different row on the Conductance Ranking tab to change this, or clear the selection there to unhighlight.")
 
         m = build_main_map(result, edges_df, highlighted)
 
-        st_folium(m, width=None, height=480, key="main_network_map", returned_objects=[])
+        st_folium(m, width=None, height=520, key="main_network_map", returned_objects=[])
     else:
-        st.warning(
-            "No coordinates in the current dataset, so no map -- this appears "
-            "once you upload a CSV from auto_discover_corridors.py."
+        if uploaded is None or use_sample:
+            title = "Your sample network is schematic"
+            copy = "The built-in example contains corridor relationships and model inputs, but no real intersection locations. Upload a geocoded edge file to place the network on a map."
+        elif missing_coordinate_columns:
+            title = "Location fields are missing"
+            copy = "The edge file loaded, but it does not include all four endpoint coordinates needed to draw corridors."
+        else:
+            title = "No usable locations found"
+            copy = "Coordinate columns were found, but every corridor has missing or out-of-range latitude/longitude values. Check the values and coordinate reference system."
+        fields = ", ".join(missing_coordinate_columns) if missing_coordinate_columns else ", ".join(COORDINATE_COLUMNS)
+        st.markdown(
+            f'<div class="map-empty"><div class="map-empty-icon">⌖</div>'
+            f'<div class="map-empty-title">{title}</div>'
+            f'<div class="map-empty-copy">{copy} Upload an edge CSV generated by '
+            f'<code>auto_discover_corridors.py</code> with coordinates in decimal degrees.</div>'
+            f'<div class="map-empty-fields">Required fields: <code>{fields}</code></div></div>',
+            unsafe_allow_html=True,
         )
 
 with tab_resilience:
