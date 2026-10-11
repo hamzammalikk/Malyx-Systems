@@ -252,7 +252,7 @@ with st.sidebar:
         help="Exponent in the normalized saturating response f(|Q|)=|Q|^mu/(1+|Q|^mu). "
              "Higher values sharpen reinforcement. It is not calibrated to Karachi traffic.",
     )
-    generations = st.slider("Generations", 10, 60, 30, 5)
+    generations = st.slider("Maximum iterations", 10, 100, 50, 5)
 
     st.header("Cost assumptions (PKR millions/km)")
     st.caption("Grounded in published Pakistani road-cost references -- replace with real KDA/SULTA figures for the actual submission")
@@ -420,6 +420,19 @@ def build_main_map(result, edges_df, highlighted):
 
 
 result = cached_simulation(edges_df, node_demands, decay_rate, mu, generations, sim_mode)
+if "converged" in result.columns:
+    if result["converged"].all():
+        n_used = int(result["iterations_run"].max())
+        st.success(
+            f"Model scores met the numerical stopping threshold within {n_used} iteration(s). "
+            "This indicates stability for the selected model and inputs; it does not validate traffic predictions."
+        )
+    else:
+        n_used = int(result["iterations_run"].max())
+        st.warning(
+            f"At least part of the model did not meet the numerical stopping threshold within "
+            f"{n_used} iteration(s). Treat these scores as iteration-limited."
+        )
 if result.empty:
     st.error(
         "The simulation produced no results -- this usually means the uploaded CSV has a formatting "
