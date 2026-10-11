@@ -241,7 +241,7 @@ with st.sidebar:
     st.header("Model parameters")
     sim_mode = st.radio(
         "Simulation mode",
-        ["Network-Coupled (recommended)", "Independent (legacy)"],
+        ["Network-Coupled (experimental)", "Independent-edge baseline"],
         help="Network-Coupled solves an undirected Kirchhoff flow problem for a single-sink "
              "scenario. It is Physarum-inspired, not calibrated traffic assignment; one-way "
              "restrictions are not enforced. Independent scores edges without network flow.",
@@ -312,7 +312,7 @@ elif uploaded is not None and not use_sample:
 
 @st.cache_data(show_spinner="Running simulation...", max_entries=5)
 def cached_simulation(edges_df, node_demands, decay_rate, mu, generations, sim_mode):
-    if sim_mode == "Network-Coupled (recommended)":
+    if sim_mode == "Network-Coupled (experimental)":
         result_df, sink_used = run_network_simulation(edges_df, node_demands, decay_rate, mu, generations)
         return result_df
     return run_simulation(edges_df, node_demands, decay_rate, mu, generations)
@@ -343,7 +343,7 @@ def build_main_map(result, edges_df, highlighted):
     many small pieces at each intersection, so styling segments
     individually made a single physical road flicker between different
     colors and widths along its length. Using the same road-level
-    aggregation as the Priority Ranking tab keeps a road looking like one
+    aggregation as the Conductance Ranking tab keeps a road looking like one
     consistent line, styled by its weakest segment (a road is only as
     strong as its weakest link).
     """
@@ -437,7 +437,7 @@ if "note" in result.columns and result["note"].astype(str).str.contains("disconn
         "ranked directly against network-coupled scores."
     )
 
-if sim_mode == "Network-Coupled (recommended)":
+if sim_mode == "Network-Coupled (experimental)":
     sink_assumption = cached_sink_node(edges_df, node_demands)
     st.info(
         f"Scenario assumption: **{sink_assumption}** is the single sink; all other nodes inject "
@@ -522,7 +522,7 @@ with st.expander("🌧️ Climate risk: mark flood-prone corridors (optional, sh
 # Tabs
 # ---------------------------------------------------------------------------
 tab_priority, tab_cost, tab_map, tab_resilience, tab_baseline, tab_notes = st.tabs(
-    ["🧬 Priority Ranking", "💰 Cost-Benefit", "🗺️ Map", "🚧 Resilience Routing", "🔬 Baseline Comparison", "📖 Model Notes"]
+    ["🧬 Conductance Ranking", "💰 Cost-Benefit", "🗺️ Map", "🚧 Resilience Routing", "🔬 Baseline Comparison", "📖 Model Notes"]
 )
 
 with tab_priority:
@@ -700,16 +700,14 @@ with tab_cost:
         climate_top = rv_climate.sort_values("climate_value_ratio", ascending=False).iloc[0]["edge_id"]
         if original_top != climate_top:
             st.warning(
-                f"**Climate risk changes the recommendation:** without factoring in flood-resilience "
-                f"cost, {original_top} looked like the highest value ratio. Once the climate premium is "
-                f"applied, {climate_top} has the higher heuristic value ratio. This is not a measured benefit or investment recommendation. "
-                f""
+                f"**The heuristic ranking changes under this cost assumption:** without the flood-resilience "
+                f"premium, {original_top} has the highest value ratio; with it, {climate_top} does. "
+                "This is not a measured benefit or investment recommendation."
             )
         else:
             st.success(
                 f"{original_top} retains the highest heuristic value ratio after the assumed climate premium. "
-                f"This is not a measured benefit or investment recommendation; "
-                f""
+                "This is not a measured benefit or investment recommendation."
             )
 
     st.markdown('<div class="section-tag">Model-score scenario sensitivity</div>', unsafe_allow_html=True)
@@ -720,7 +718,7 @@ with tab_cost:
     )
     verify_n = st.slider("Analyze top N heuristic candidates", 5, 30, 15, 5)
     if st.button("🔬 Run model-score scenarios"):
-        if sim_mode == "Network-Coupled (recommended)":
+        if sim_mode == "Network-Coupled (experimental)":
             def _sim_fn(e, d, dr, m, g):
                 r, _ = run_network_simulation(e, d, dr, m, g)
                 return r
@@ -736,7 +734,7 @@ with tab_cost:
             verified.style.background_gradient(subset=["simulated_value_ratio"], cmap=WARM_CMAP),
             width="stretch",
         )
-        if sim_mode == "Network-Coupled (recommended)":
+        if sim_mode == "Network-Coupled (experimental)":
             st.caption(
                 "Note: in Network-Coupled mode, a corridor with no alternate route in the network "
                 "(a dead-end or a chain with no loops) will correctly show zero simulated gain -- "
@@ -789,7 +787,7 @@ with tab_map:
     if has_coords:
         highlighted = st.session_state.get("highlighted_edge")
         if highlighted:
-            st.caption(f"Highlighting **{highlighted}** -- click a different row on the Priority Ranking tab to change this, or clear the selection there to unhighlight.")
+            st.caption(f"Highlighting **{highlighted}** -- click a different row on the Conductance Ranking tab to change this, or clear the selection there to unhighlight.")
 
         m = build_main_map(result, edges_df, highlighted)
 
@@ -963,7 +961,7 @@ with tab_baseline:
         "before claiming the bio-inspired approach is better."
     )
 
-    if sim_mode == "Network-Coupled (recommended)":
+    if sim_mode == "Network-Coupled (experimental)":
         sink_display = cached_sink_node(edges_df, node_demands)
         st.info(f"Network-Coupled mode active. Flow sink node for this run: **{sink_display}** "
                 f"(highest-demand node -- see physarum_network_model.py docstring for why this "
@@ -983,7 +981,7 @@ with tab_baseline:
         <div class="kpi-value">{comparison['top_n_overlap']} / {comparison['top_n']}</div>
         <div class="kpi-sub">corridors both methods agree belong in the top tier</div></div>""", unsafe_allow_html=True)
 
-    if sim_mode == "Independent (legacy)" and corr is not None and corr > 0.9:
+    if sim_mode == "Independent-edge baseline" and corr is not None and corr > 0.9:
         st.warning(
             f"**Honest finding:** correlation is {corr:.3f} -- essentially identical rankings. "
             f"In Independent mode, each corridor evolves separately during simulation (no edge "
@@ -993,7 +991,7 @@ with tab_baseline:
             f"you. Switch to Network-Coupled mode in the sidebar to see genuine flow-competition "
             f"effects between corridors."
         )
-    elif sim_mode == "Network-Coupled (recommended)" and corr is not None and corr > 0.9:
+    elif sim_mode == "Network-Coupled (experimental)" and corr is not None and corr > 0.9:
         st.info(
             f"Correlation is {corr:.3f} on this network -- the two methods happen to agree closely "
             f"here. This can genuinely happen on networks with few loops (a chain-like topology has "
