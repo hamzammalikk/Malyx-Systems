@@ -50,9 +50,9 @@ versions is not present on the default branch.
   below tolerance for three consecutive iterations after at least ten steps;
   otherwise it reaches the iteration limit. Numerical stability does not
   validate the result against observed traffic or imply a global optimum.
-- Disconnected edges are scored with the independent-edge model and marked
-  in the result notes. Do not treat those scores as directly comparable to
-  coupled scores without separate analysis.
+- Edges disconnected from the selected sink receive no coupled score
+  (NaN) and are excluded from score comparisons. They remain visible in the
+  dashboard with a note.
 
 The saturated reinforcement response has precedent in Physarum modeling,
 including the multi-food-source model of Tero et al. (2008). The current
